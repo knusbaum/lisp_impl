@@ -41,13 +41,14 @@ int main(void) {
     printf("String cap: %d\n", string_cap(s));
 
     while(1) {
+        printf("> ");
 //        struct token t;
 //        next_token(&t);
 //        print_token(&t);
 //        if(t.type == END) break;
         object *o = next_form();
         if(o) {
-            printf("Got object: ");
+            //printf("Got object: ");
             print_object(o);
             printf("\n");
         }

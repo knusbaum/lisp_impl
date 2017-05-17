@@ -20,29 +20,34 @@ int is_sym_char(int c) {
 }
 
 int _look;
-int look() {
+static int look() {
+    //printf("[lexer.c][look] Looking.\n");
     if(!_look) {
         _look = getchar();
     }
     return _look;
 }
 
-int get_char() {
+static int get_char() {
+    //printf("[lexer.c][get_char] Getting char.\n");
     if(!_look) {
         _look = getchar();
     }
     int ret = _look;
     _look = getchar();
+    //printf("[lexer.c][get_char] Got: %c\n", ret);
     return ret;
 }
 
-void skip_whitespace() {
+static void skip_whitespace() {
+    //printf("[lexer.c][next_token] Skipping whitespace.\n");
     while(is_whitespace(look())) {
         get_char();
     }
 }
 
-void match(int c) {
+static void match(int c) {
+    //printf("[lexer.c][match] Matching %c.\n", c);
     if(look() == c) {
         //get_char();
         _look = 0;
@@ -88,10 +93,22 @@ string *parse_symbol() {
     string *s = new_string();
     int c;
     while(c = look(), is_sym_char(c)) {
+        if(c >=97 && c <= 122) {
+            c -= 32;
+        }
         string_append(s, c);
         get_char();
     }
     return s;
+}
+
+long parse_long() {
+    string *s = new_string();
+    while(isdigit(look())) {
+        string_append(s, look());
+        get_char();
+    }
+    return strtol(string_ptr(s), NULL, 0);
 }
 
 void next_token(struct token *t) {
@@ -120,23 +137,24 @@ void next_token(struct token *t) {
     case EOF:
         t->type = END;
         t->data = NULL;
+        break;
     default:
         if(isalpha(look())) {
             t->type = SYM;
             t->data = parse_symbol();
-            printf("Got Symbol: ");
-            print_token(t);
         }
         else if(isdigit(look())) {
             t->type = NUM;
-            t->num = 0;
-            get_char();
+            t->num = parse_long();
+//            get_char();
         }
         else {
-            printf("Got invalid character: %c\n", look());
+            //printf("[lexer.c][next_token] Got invalid character: %c\n", look());
             abort();
         }
     }
+    //printf("[lexer.c][next_token] Made token @ %p: ", t);
+    //print_token(t);
 }
 
 void free_token(struct token *t) {
@@ -150,7 +168,41 @@ void free_token(struct token *t) {
     case LPAREN:
     case RPAREN:
     case QUOTE:
+    case END:
+    case NUM:
+    case NONE:
         break;
+    }
+}
+
+const char *toktype_str(enum toktype t) {
+    switch(t) {
+    case NONE:
+        return "NONE";
+        break;
+    case LPAREN:
+        return "LPAREN";
+        break;
+    case RPAREN:
+        return "RPAREN";
+        break;
+    case SYM:
+        return "SYM";
+        break;
+    case STRING:
+        return "STRING";
+        break;
+    case NUM:
+        return "NUM";
+        break;
+    case QUOTE:
+        return "QUOTE";
+        break;
+    case END:
+        return "END";
+        break;
+    default:
+        return "UNKNOWN";
     }
 }
 
@@ -158,28 +210,23 @@ void print_token(struct token *t) {
     printf("[");
     switch(t->type) {
     case NONE:
-        printf("NONE");
-        break;
     case LPAREN:
-        printf("LPAREN");
-        break;
     case RPAREN:
-        printf("RPAREN");
+    case QUOTE:
+    case END:
+        printf("%s", toktype_str(t->type));
         break;
     case SYM:
-        printf("SYM, %s", string_ptr(t->data));
+        printf("%s, %s", toktype_str(t->type), string_ptr(t->data));
         break;
     case STRING:
-        printf("STRING, \"%s\"", string_ptr(t->data));
+        printf("%s, \"%s\"", toktype_str(t->type), string_ptr(t->data));
         break;
     case NUM:
-        printf("NUM, %d", t->num);
+        printf("%s, %d", toktype_str(t->type), t->num);
         break;
-    case QUOTE:
-        printf("QUOTE");
-        break;
-    case END:
-        printf("END");
+    default:
+        printf("UNKNOWN: %d", t->type);
         break;
     }
     printf("]\n");
@@ -199,6 +246,8 @@ string *new_string() {
     struct string *s = malloc(sizeof (struct string));
     s->s = NULL;
     s->cap = 0;
+    s->len = 0;
+    return s;
 }
 
 string *new_string_copy(char *c) {
@@ -208,6 +257,7 @@ string *new_string_copy(char *c) {
     strcpy(s->s, c);
     s->cap = size;
     s->len = size;
+    return s;
 }
 
 void string_append(string *s, char c) {
