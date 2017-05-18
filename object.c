@@ -55,8 +55,10 @@ object *new_object(enum obj_type t, void *o) {
         printf("Cannot assign a num with this function.\n");
         abort();
         break;
+    case O_FN:
     case O_CONS:
         ob->c = o;
+        break;
     case O_FN_NATIVE:
         ob->native = o;
         break;
@@ -76,6 +78,31 @@ object *new_object_long(long l) {
     ob->type = O_NUM;
     ob->num = l;
     return ob;
+}
+
+object *new_object_fn(object *args, object *body) {
+    cons *cell = new_cons();
+    setcar(cell, args);
+    setcdr(cell, body);
+    return new_object(O_FN, cell);
+}
+
+object *new_object_list(size_t len, ...) {
+    va_list ap;
+    va_start(ap, len);
+
+    object *start = NULL;
+    object *current = NULL;
+    for(size_t i = 0; i < len; i++) {
+        object *next = new_object_cons(va_arg(ap, object *), obj_nil());
+        if(current) {
+            osetcdr(current, next);
+        }
+        current = next;
+        if(!start) start=current;
+    }
+    va_end(ap);
+    return start;
 }
 
 enum obj_type otype(object *o) {
@@ -122,6 +149,16 @@ object *(*oval_native(object *o))(void *, void *) {
     return o->native;
 }
 
+object *oval_fn_args(object *o) {
+    cons *cell = o->c;
+    return car(cell);
+}
+
+object *oval_fn_body(object *o) {
+    cons *cell = o->c;
+    return cdr(cell);
+}
+
 object *ocar(object *o) {
     if(o->type != O_CONS) {
         printf("Expected CONS cell, but have: ");
@@ -140,6 +177,25 @@ object *ocdr(object *o) {
     return cdr(o->c);
 }
 
+object *osetcar(object *o, object *car) {
+    if(o->type != O_CONS) {
+        printf("Expected CONS cell, but have: ");
+        print_object(o);
+        printf("\n");
+    }
+    setcar(o->c, car);
+    return car;
+}
+
+object *osetcdr(object *o, object *cdr) {
+    if(o->type != O_CONS) {
+        printf("Expected CONS cell, but have: ");
+        print_object(o);
+        printf("\n");
+    }
+    setcdr(o->c, cdr);
+    return cdr;
+}
 
 static void print_cons(cons *c);
 
@@ -161,6 +217,9 @@ static void print_cdr(object *o) {
         break;
     case O_FN_NATIVE:
         printf(" . #<NATIVE FUNCTION>");
+        break;
+    case O_FN:
+        printf("#<FUNCTION @ %p>", o);
         break;
     }
 }
@@ -200,6 +259,9 @@ void print_object(object *o) {
         break;
     case O_FN_NATIVE:
         printf("#<NATIVE FUNCTION>");
+        break;
+    case O_FN:
+        printf("#<FUNCTION @ %p>", o);
         break;
     }
 }

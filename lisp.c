@@ -16,6 +16,7 @@ object *set(context *c, object *arglist);
 object *quote(context *c, object *arglist);
 object *let(context *c, object *arglist);
 object *eq(context *c, object *arglist);
+object *fn(context *c, object *arglist);
 
 object *lookup_var(context *c, object *sym) {
     object *o = map_get(c->vars, sym);
@@ -38,12 +39,12 @@ object *lookup_fn(context *c, object *sym) {
     return o;
 }
 
-int sym_equal(void *a, void *b) {
-    return a == b;
-}
-
 void bind_native_fn(context *c, object *sym, object *(*fn)(context *, object *)) {
     map_put(c->funcs, sym, new_object(O_FN_NATIVE, fn));
+}
+
+void bind_fn(context *c, object *sym, object *fn) {
+    map_put(c->funcs, sym, fn);
 }
 
 void init_context_funcs(context *c) {
@@ -53,6 +54,11 @@ void init_context_funcs(context *c) {
     bind_native_fn(c, interns("QUOTE"), quote);
     bind_native_fn(c, interns("LET"), let);
     bind_native_fn(c, interns("EQ"), eq);
+    bind_native_fn(c, interns("FN"), fn);
+}
+
+int sym_equal(void *a, void *b) {
+    return a == b;
 }
 
 context *new_context() {
@@ -93,14 +99,14 @@ object *sum(context *c, object *arglist) {
     return sum_rec(c, arglist, 0);
 }
 
-object *length_rec(context *c, object *arglist, long v) {
+long length_rec(object *arglist, long v) {
     if(arglist == obj_nil()) {
-        return new_object_long(v);
+        return v;
     }
 
     v++;
     object *next = ocdr(arglist);
-    return length_rec(c, next, v);
+    return length_rec(next, v);
 }
 
 object *length(context *c, object *arglist) {
@@ -114,19 +120,27 @@ object *length(context *c, object *arglist) {
     printf("Evaling length on: ");
     print_object(list);
     printf("\n");
-    return length_rec(c, list, 0);
+    return new_object_long(length_rec(list, 0));
 }
 
-void assert_length(context *c, object *list, long len) {
-    object *l = length_rec(c, list, 0);
-    if(oval_long(l) != len) {
-        printf("Expected exactly %ld argument(s), but got %ld.\n", len, oval_long(l));
+void assert_length(object *list, long len) {
+    long l = length_rec(list, 0);
+    if(l != len) {
+        printf("Expected exactly %ld argument(s), but got %ld.\n", len, l);
+        abort();
+    }
+}
+
+void assert_length_gt_or_eq(object *list, long len) {
+    long l = length_rec(list, 0);
+    if(l < len) {
+        printf("Expected more than %ld argument(s), but got %ld.\n", len, l);
         abort();
     }
 }
 
 object *set(context *c, object *arglist) {
-    assert_length(c, arglist, 2);
+    assert_length(arglist, 2);
 
     object *var = ocar(arglist);
     object *rest = ocdr(arglist);
@@ -144,7 +158,8 @@ object *set(context *c, object *arglist) {
 }
 
 object *quote(context *c, object *arglist) {
-    assert_length(c, arglist, 1);
+    (void)c;
+    assert_length(arglist, 1);
     return ocar(arglist);
 }
 
@@ -172,7 +187,8 @@ object *let(context *c, object *arglist) {
 }
 
 object *eq(context *c, object *arglist) {
-    assert_length(c, arglist, 2);
+    (void)c;
+    assert_length(arglist, 2);
     object *o1 = ocar(arglist);
     object *o2 = ocar(ocdr(arglist));
     if(o1 == o2) {
@@ -181,6 +197,66 @@ object *eq(context *c, object *arglist) {
     else {
         return obj_nil();
     }
+}
+
+object *fn(context *c, object *arglist) {
+    assert_length_gt_or_eq(arglist, 2);
+    object *fname = ocar(arglist);
+    object *fargs = ocar(ocdr(arglist));
+    object *body = ocdr(ocdr(arglist));
+
+    if(otype(fname) != O_SYM) {
+        printf("Cannot bind function to: ");
+        print_object(fname);
+        printf("\n");
+        abort();
+    }
+    if(otype(fargs) != O_CONS) {
+        printf("Expected args as list, but got: ");
+        print_object(fargs);
+        printf("\n");
+        abort();
+    }
+
+    bind_fn(c, fname, new_object_fn(fargs, body));
+    return fname;
+}
+
+object *call_fn(context *c, object *fn, object *arglist) {
+    context *fn_c = new_context();
+    fn_c->parent = c;
+    object *fargs = oval_fn_args(fn);
+    object *fbody = oval_fn_body(fn);
+
+    long fargs_len = length_rec(fargs, 0);
+    long arglist_len = length_rec(arglist, 0);
+    if(fargs_len != arglist_len) {
+        printf("Expected %ld args, but got: %ld.\n", fargs_len, arglist_len);
+        printf("Fargs: ");
+        print_object(fargs);
+        printf("\n");
+        printf("FBody: ");
+        print_object(fbody);
+        printf("\n");
+        abort();
+    }
+
+    for(object *curr_param = fargs, *curr_arg = arglist;
+        curr_param != obj_nil();
+        curr_param = ocdr(curr_param), curr_arg = ocdr(curr_arg)) {
+        object *param = ocar(curr_param);
+        object *arg = eval(c, ocar(curr_arg));
+        bind_var(fn_c, param, arg);
+    }
+
+    object *ret = obj_nil();
+    for(; fbody != obj_nil(); fbody = ocdr(fbody)) {
+        object *form = ocar(fbody);
+        ret = eval(fn_c, form);
+    }
+
+    free_context(fn_c);
+    return ret;
 }
 
 object *apply(context *c, object *fsym, object *arglist) {
@@ -201,7 +277,12 @@ object *apply(context *c, object *fsym, object *arglist) {
 
     object *fn = lookup_fn(c, fsym);
     if(fn != NULL) {
-        return oval_native(fn)(c, arglist);
+        if(otype(fn) == O_FN_NATIVE) {
+            return oval_native(fn)(c, arglist);
+        }
+        else {
+            return call_fn(c, fn, arglist);
+        }
     }
 
     printf("No such function: ");
