@@ -5,7 +5,9 @@ OBJECTS=main.o \
 		lexer.o \
 		lisp.o \
 		map.o \
-		parser.o
+		parser.o \
+		object.o \
+		lstring.o
 
 all: lisp
 
