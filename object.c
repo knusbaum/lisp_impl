@@ -25,9 +25,6 @@ void setcdr(cons *c, object *o) {
     c->cdr = o;
 }
 
-
-
-
 cons *new_cons() {
     cons *c = malloc(sizeof (cons));
     c->car = NULL;
@@ -66,6 +63,13 @@ object *new_object(enum obj_type t, void *o) {
     return ob;
 }
 
+object *new_object_cons(object *car, object *cdr) {
+    cons *c = new_cons();
+    setcar(c, car);
+    setcdr(c, cdr);
+    return new_object(O_CONS, c);
+}
+
 object *new_object_long(long l) {
     object *ob = malloc(sizeof (object));
     ob->type = O_NUM;
@@ -97,16 +101,6 @@ string *oval_string(object *o) {
     return o->str;
 }
 
-//cons *oval_cons(object *o) {
-//    if(o->type != O_CONS) {
-//        printf("Expected cons, but have: ");
-//        print_object(o);
-//        printf("\n");
-//        abort();
-//    }
-//    return o->c;
-//}
-
 long oval_long(object *o) {
     if(o->type != O_NUM) {
         printf("Expected number, but have: ");
@@ -117,7 +111,6 @@ long oval_long(object *o) {
     return o->num;
 }
 
-//void *oval_native(object *o) {
 object *(*oval_native(object *o))(void *, void *) {
     if(o->type != O_FN_NATIVE) {
         printf("Expected number, but have: ");
@@ -211,20 +204,17 @@ void print_object(object *o) {
 map_t *symbols;
 
 object *intern(string *symname) {
-    //printf("Interning %s\n", string_ptr(symname));
     if(!symbols) {
         symbols = map_create((int (*)(void *, void *))string_equal);
     }
 
     object *s = map_get(symbols, symname);
     if(!s) {
-        //printf("Wasn't interned yet %s\n", string_ptr(symname));
         s = new_object(O_SYM, symname);
         s->str = symname;
         map_put(symbols, symname, s);
     }
     else {
-        //printf("Already interned %s\n", string_ptr(symname));
         string_free(symname);
     }
     return s;

@@ -6,9 +6,6 @@
 #include "lisp.h"
 
 
-
-/** Actual parser **/
-
 struct token current;
 
 void get_next_tok() {
@@ -62,8 +59,6 @@ object *parse_list() {
         car_obj = next_form();
         break;
     }
-    cons *c = new_cons();
-    setcar(c, car_obj);
 
     object *cdr_obj;
     switch(currtok()->type) {
@@ -76,11 +71,8 @@ object *parse_list() {
         cdr_obj = parse_list();
         break;
     }
-    //printf("[parser.c][parse_list] Parsing list for CDR.\n");
-    //object *cdr_obj = parse_list();
-    setcdr(c, cdr_obj);
 
-    object *conso = new_object(O_CONS, c);
+    object *conso = new_object_cons(car_obj, cdr_obj);
     return conso;
 }
 
@@ -88,8 +80,6 @@ object *next_form() {
     if(currtok()->type == NONE) get_next_tok();
 
     object *o;
-    cons *c;
-    cons *cdrcons;
     switch(currtok()->type) {
     case LPAREN:
         //printf("[parser.c][next_form] Got left paren.\n");
@@ -123,14 +113,8 @@ object *next_form() {
     case QUOTE:
         get_next_tok();
         o = next_form();
-        c = new_cons();
-        setcar(c, intern(new_string_copy("QUOTE")));
-        cdrcons = new_cons();
-        setcar(cdrcons, o);
-        o = new_object(O_CONS, cdrcons);
-        setcdr(c, o);
-        o = new_object(O_CONS, c);
-        return o;
+        o = new_object_cons(o, obj_nil());
+        return new_object_cons(intern(new_string_copy("QUOTE")), o);
         break;
     default:
         printf("[parser.c][next_form] Got another token: ");
