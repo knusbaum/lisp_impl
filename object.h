@@ -25,7 +25,6 @@ object *new_object_list(size_t len, ...);
 enum obj_type otype(object *o);
 string *oval_symbol(object *o);
 string *oval_string(object *o);
-//cons *oval_cons(object *o);
 long oval_long(object *o);
 object *(*oval_native(object *o))(void *, void *);
 object *oval_fn_args(object *o);

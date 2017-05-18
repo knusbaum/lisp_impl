@@ -11,12 +11,21 @@ struct context {
 
 /** Built-ins **/
 object *sum(context *c, object *arglist);
+object *subtract(context *c, object *arglist);
+object *multiply(context *c, object *arglist);
+object *divide(context *c, object *arglist);
 object *length(context *c, object *arglist);
 object *set(context *c, object *arglist);
 object *quote(context *c, object *arglist);
 object *let(context *c, object *arglist);
 object *eq(context *c, object *arglist);
 object *fn(context *c, object *arglist);
+object *lisp_if(context *c, object *arglist);
+object *and(context *c, object *arglist);
+object *or(context *c, object *arglist);
+object *num_gt(context *c, object *arglist);
+object *num_lt(context *c, object *arglist);
+object *num_eq(context *c, object *arglist);
 
 object *lookup_var(context *c, object *sym) {
     object *o = map_get(c->vars, sym);
@@ -49,12 +58,21 @@ void bind_fn(context *c, object *sym, object *fn) {
 
 void init_context_funcs(context *c) {
     bind_native_fn(c, interns("+"), sum);
+    bind_native_fn(c, interns("-"), subtract);
+    bind_native_fn(c, interns("*"), multiply);
+    bind_native_fn(c, interns("/"), divide);
     bind_native_fn(c, interns("SET"), set);
     bind_native_fn(c, interns("LENGTH"), length);
     bind_native_fn(c, interns("QUOTE"), quote);
     bind_native_fn(c, interns("LET"), let);
     bind_native_fn(c, interns("EQ"), eq);
     bind_native_fn(c, interns("FN"), fn);
+    bind_native_fn(c, interns("IF"), lisp_if);
+    bind_native_fn(c, interns("AND"), and);
+    bind_native_fn(c, interns("OR"), or);
+    bind_native_fn(c, interns(">"), num_gt);
+    bind_native_fn(c, interns("<"), num_lt);
+    bind_native_fn(c, interns("="), num_eq);
 }
 
 int sym_equal(void *a, void *b) {
@@ -73,30 +91,6 @@ void free_context(context *c) {
     map_destroy(c->vars);
     map_destroy(c->funcs);
     free(c);
-}
-
-object *sum_rec(context *c, object *arglist, long v) {
-    if(arglist == obj_nil()) {
-        object *o = new_object_long(v);
-        return o;
-    }
-
-    object *next = ocar(arglist);
-    next = eval(c, next);
-    if(otype(next) != O_NUM) {
-        printf("Expecting number. Got: ");
-        print_object(arglist);
-        printf("\n");
-        abort();
-    }
-
-    long next_val = oval_long(next);
-    v += next_val;
-    return sum_rec(c, ocdr(arglist), v);
-}
-
-object *sum(context *c, object *arglist) {
-    return sum_rec(c, arglist, 0);
 }
 
 long length_rec(object *arglist, long v) {
@@ -137,6 +131,58 @@ void assert_length_gt_or_eq(object *list, long len) {
         printf("Expected more than %ld argument(s), but got %ld.\n", len, l);
         abort();
     }
+}
+
+object *sum_rec(context *c, object *arglist, long v) {
+    if(arglist == obj_nil()) {
+        object *o = new_object_long(v);
+        return o;
+    }
+
+    object *next = ocar(arglist);
+    next = eval(c, next);
+    long next_val = oval_long(next);
+    v += next_val;
+    return sum_rec(c, ocdr(arglist), v);
+}
+
+object *sum(context *c, object *arglist) {
+    return sum_rec(c, arglist, 0);
+}
+
+object *subtract(context *c, object *arglist) {
+    (void)c;
+    assert_length_gt_or_eq(arglist, 1);
+
+    long val = oval_long(eval(c, ocar(arglist)));
+    for(object *curr = ocdr(arglist); curr != obj_nil(); curr = ocdr(curr)) {
+        object *curr_val = eval(c, ocar(curr));
+        val -= oval_long(curr_val);
+    }
+    return new_object_long(val);
+}
+
+object *multiply(context *c, object *arglist) {
+    (void)c;
+    assert_length_gt_or_eq(arglist, 1);
+
+    long val = oval_long(eval(c, ocar(arglist)));
+    for(object *curr = ocdr(arglist); curr != obj_nil(); curr = ocdr(curr)) {
+        object *curr_val = eval(c, ocar(curr));
+        val *= oval_long(curr_val);
+    }
+    return new_object_long(val);
+}
+object *divide(context *c, object *arglist) {
+    (void)c;
+    assert_length_gt_or_eq(arglist, 1);
+    
+    long val = oval_long(eval(c, ocar(arglist)));
+    for(object *curr = ocdr(arglist); curr != obj_nil(); curr = ocdr(curr)) {
+        object *curr_val = eval(c, ocar(curr));
+        val /= oval_long(curr_val);
+    }
+    return new_object_long(val);
 }
 
 object *set(context *c, object *arglist) {
@@ -222,6 +268,80 @@ object *fn(context *c, object *arglist) {
     return fname;
 }
 
+object *lisp_if(context *c, object *arglist) {
+    assert_length(arglist, 3);
+
+    object *ret = obj_nil();
+    object *cond = eval(c, ocar(arglist));
+    if(cond != obj_nil()) {
+        ret = eval(c, ocar(ocdr(arglist)));
+    }
+    else {
+        ret = eval(c, ocar(ocdr(ocdr(arglist))));
+    }
+    return ret;
+}
+
+object *and(context *c, object *arglist) {
+    object *ret = obj_nil();
+    for(object *curr = arglist; curr != obj_nil(); curr = ocdr(curr)) {
+        ret = eval(c, ocar(curr));
+        if(!ret) return obj_nil();
+    }
+    return ret;
+}
+
+object *or(context *c, object *arglist) {
+    object *ret = obj_nil();
+    for(object *curr = arglist; curr != obj_nil(); curr = ocdr(curr)) {
+        ret = eval(c, ocar(curr));
+        if(ret != obj_nil()) return ret;
+    }
+    return obj_nil();
+}
+
+object *num_gt(context *c, object *arglist) {
+    (void)c;
+    assert_length(arglist, 2);
+    object *x = eval(c, ocar(arglist));
+    object *y = eval(c, ocar(ocdr(arglist)));
+
+    if(oval_long(x) > oval_long(y)) {
+        return obj_t();
+    }
+    else {
+        return obj_nil();
+    }
+}
+
+object *num_lt(context *c, object *arglist) {
+    (void)c;
+    assert_length(arglist, 2);
+    object *x = eval(c, ocar(arglist));
+    object *y = eval(c, ocar(ocdr(arglist)));
+
+    if(oval_long(x) < oval_long(y)) {
+        return obj_t();
+    }
+    else {
+        return obj_nil();
+    }
+}
+
+object *num_eq(context *c, object *arglist) {
+    (void)c;
+    assert_length(arglist, 2);
+    object *x = eval(c, ocar(arglist));
+    object *y = eval(c, ocar(ocdr(arglist)));
+ 
+    if(oval_long(x) == oval_long(y)) {
+        return obj_t();
+    }
+    else {
+        return obj_nil();
+    }
+}
+
 object *call_fn(context *c, object *fn, object *arglist) {
     context *fn_c = new_context();
     fn_c->parent = c;
@@ -259,7 +379,7 @@ object *call_fn(context *c, object *fn, object *arglist) {
     return ret;
 }
 
-object *apply(context *c, object *fsym, object *arglist) {
+static object *apply(context *c, object *fsym, object *arglist) {
 
     if(otype(fsym) != O_SYM) {
         printf("Expecting function. Got: ");
@@ -291,7 +411,7 @@ object *apply(context *c, object *fsym, object *arglist) {
     return obj_nil();
 }
 
-object *eval_sym(context *c, object *o) {
+static object *eval_sym(context *c, object *o) {
     if(o == obj_nil()) {
         return o;
     }
