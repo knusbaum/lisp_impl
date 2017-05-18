@@ -47,7 +47,6 @@ void bind_native_fn(context *c, object *sym, object *(*fn)(context *, object *))
 }
 
 void init_context_funcs(context *c) {
-
     bind_native_fn(c, interns("+"), sum);
     bind_native_fn(c, interns("SET"), set);
     bind_native_fn(c, interns("LENGTH"), length);
@@ -132,11 +131,12 @@ object *set(context *c, object *arglist) {
     object *var = ocar(arglist);
     object *rest = ocdr(arglist);
     object *val = ocar(rest);
-// Shouldn't need this anymore with assert_length.
-//    if(ocdr(rest) != obj_nil()) {
-//        printf("Expected exactly 2 args, but got more.\n");
-//        abort();
-//    }
+    if(otype(var) != O_SYM) {
+        printf("Cannot bind to object: ");
+        print_object(var);
+        printf("\n");
+        abort();
+    }
 
     val = eval(c, val);
     bind_var(c, var, val);
