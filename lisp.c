@@ -195,6 +195,10 @@ object *apply(context *c, object *fsym, object *arglist) {
 }
 
 object *eval_sym(context *c, object *o) {
+    if(o == obj_nil()) {
+        return o;
+    }
+
     object *val = lookup_var(c, o);
     if(!val) {
         printf("Error: %s is not bound.\n", string_ptr(oval_symbol(o)));
