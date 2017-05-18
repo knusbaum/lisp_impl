@@ -139,6 +139,10 @@ void next_token(struct token *t) {
         t->data = NULL;
         get_char();
         break;
+    case ':':
+        t->type = KEYWORD;
+        t->data = parse_symbol();
+        break;
     case EOF:
         t->type = END;
         t->data = NULL;
@@ -166,8 +170,7 @@ void next_token(struct token *t) {
 void free_token(struct token *t) {
     switch(t->type) {
     case SYM:
-        string_free(t->data);
-        break;
+    case KEYWORD:
     case STRING:
         string_free(t->data);
         break;

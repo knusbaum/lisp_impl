@@ -82,31 +82,26 @@ object *next_form() {
     object *o;
     switch(currtok()->type) {
     case LPAREN:
-        //printf("[parser.c][next_form] Got left paren.\n");
         tok_match(LPAREN);
         return parse_list();
         break;
     case SYM:
-        //printf("[parser.c][next_form] Got a symbol: ");
-        //print_token(currtok());
         o = intern(new_string_copy(string_ptr(currtok()->data)));
-        //get_next_tok();
         clear_tok();
         return o;
         break;
     case STRING:
-        //printf("[parser.c][next_form] Got a string: ");
-        //print_token(currtok());
         o = new_object(O_STR, new_string_copy(string_ptr(currtok()->data)));
-        //get_next_tok();
         clear_tok();
         return o;
         break;
     case NUM:
-        //printf("[parser.c][next_form] Got a number: ");
-        //print_token(currtok());
         o = new_object_long(currtok()->num);
-        //get_next_tok();
+        clear_tok();
+        return o;
+        break;
+    case KEYWORD:
+        o = intern(new_string_copy(string_ptr(currtok()->data)));
         clear_tok();
         return o;
         break;

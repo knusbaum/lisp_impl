@@ -46,6 +46,7 @@ object *new_object(enum obj_type t, void *o) {
     object *ob = malloc(sizeof (object));
     ob->type = t;
     switch(t) {
+    case O_KEYWORD:
     case O_SYM:
     case O_STR:
         ob->str = o;
@@ -144,6 +145,7 @@ static void print_cons(cons *c);
 
 static void print_cdr(object *o) {
     switch(otype(o)) {
+    case O_KEYWORD:
     case O_SYM:
         printf(" . %s", string_ptr(o->str));
         break;
@@ -183,6 +185,7 @@ static void print_list(cons *c) {
 void print_object(object *o) {
     if(!o) return;
     switch(otype(o)) {
+    case O_KEYWORD:
     case O_SYM:
         printf("%s", string_ptr(o->str));
         break;
@@ -203,6 +206,10 @@ void print_object(object *o) {
 
 map_t *symbols;
 
+object *interns(char *symname) {
+    return intern(new_string_copy(symname));
+}
+
 object *intern(string *symname) {
     if(!symbols) {
         symbols = map_create((int (*)(void *, void *))string_equal);
@@ -210,7 +217,12 @@ object *intern(string *symname) {
 
     object *s = map_get(symbols, symname);
     if(!s) {
-        s = new_object(O_SYM, symname);
+        if(string_ptr(symname)[0] == ':') {
+            s = new_object(O_KEYWORD, symname);
+        }
+        else {
+            s = new_object(O_SYM, symname);
+        }
         s->str = symname;
         map_put(symbols, symname, s);
     }

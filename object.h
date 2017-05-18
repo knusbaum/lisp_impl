@@ -11,7 +11,8 @@ enum obj_type {
     O_STR,
     O_NUM,
     O_CONS,
-    O_FN_NATIVE
+    O_FN_NATIVE,
+    O_KEYWORD
 };
 
 /** Object Operations **/
@@ -29,6 +30,7 @@ object *ocdr(object *o);
 void print_object(object *o);
 
 /** Symbol Operations **/
+object *interns(char *symname);
 object *intern(string *symname);
 object *obj_nil();
 

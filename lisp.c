@@ -15,6 +15,7 @@ object *length(context *c, object *arglist);
 object *set(context *c, object *arglist);
 object *quote(context *c, object *arglist);
 object *let(context *c, object *arglist);
+object *eq(context *c, object *arglist);
 
 object *lookup_var(context *c, object *sym) {
     object *o = map_get(c->vars, sym);
@@ -41,22 +42,18 @@ int sym_equal(void *a, void *b) {
     return a == b;
 }
 
+void bind_native_fn(context *c, object *sym, object *(*fn)(context *, object *)) {
+    map_put(c->funcs, sym, new_object(O_FN_NATIVE, fn));
+}
+
 void init_context_funcs(context *c) {
-    object *sym;
-    sym = intern(new_string_copy("+"));
-    map_put(c->funcs, sym, new_object(O_FN_NATIVE, sum));
 
-    sym = intern(new_string_copy("SET"));
-    map_put(c->funcs, sym, new_object(O_FN_NATIVE, set));
-
-    sym = intern(new_string_copy("LENGTH"));
-    map_put(c->funcs, sym, new_object(O_FN_NATIVE, length));
-
-    sym = intern(new_string_copy("QUOTE"));
-    map_put(c->funcs, sym, new_object(O_FN_NATIVE, quote));
-
-    sym = intern(new_string_copy("LET"));
-    map_put(c->funcs, sym, new_object(O_FN_NATIVE, let));
+    bind_native_fn(c, interns("+"), sum);
+    bind_native_fn(c, interns("SET"), set);
+    bind_native_fn(c, interns("LENGTH"), length);
+    bind_native_fn(c, interns("QUOTE"), quote);
+    bind_native_fn(c, interns("LET"), let);
+    bind_native_fn(c, interns("EQ"), eq);
 }
 
 context *new_context() {
@@ -121,19 +118,25 @@ object *length(context *c, object *arglist) {
     return length_rec(c, list, 0);
 }
 
-object *set(context *c, object *arglist) {
-    if(arglist == obj_nil()) {
-        printf("Expected exactly 2 args, but got none.\n");
+void assert_length(context *c, object *list, long len) {
+    object *l = length_rec(c, list, 0);
+    if(oval_long(l) != len) {
+        printf("Expected exactly %ld argument(s), but got %ld.\n", len, oval_long(l));
         abort();
     }
+}
+
+object *set(context *c, object *arglist) {
+    assert_length(c, arglist, 2);
 
     object *var = ocar(arglist);
     object *rest = ocdr(arglist);
     object *val = ocar(rest);
-    if(ocdr(rest) != obj_nil()) {
-        printf("Expected exactly 2 args, but got more.\n");
-        abort();
-    }
+// Shouldn't need this anymore with assert_length.
+//    if(ocdr(rest) != obj_nil()) {
+//        printf("Expected exactly 2 args, but got more.\n");
+//        abort();
+//    }
 
     val = eval(c, val);
     bind_var(c, var, val);
@@ -141,7 +144,7 @@ object *set(context *c, object *arglist) {
 }
 
 object *quote(context *c, object *arglist) {
-    (void)c;
+    assert_length(c, arglist, 1);
     return ocar(arglist);
 }
 
@@ -164,7 +167,25 @@ object *let(context *c, object *arglist) {
     for(object *body = ocdr(arglist); body != obj_nil(); body = ocdr(body)) {
         res = eval(new_c, ocar(body));
     }
+    free_context(new_c);
     return res;
+}
+
+object *eq(context *c, object *arglist) {
+    assert_length(c, arglist, 2);
+    object *o1 = ocar(arglist);
+    object *o2 = ocar(ocdr(arglist));
+    printf("Comparing : ");
+    print_object(o1);
+    printf("(%p)\nAnd: ", o1);
+    print_object(o2);
+    printf("(%p)\n", o2);
+    if(o1 == o2) {
+        return interns("T");
+    }
+    else {
+        return obj_nil();
+    }
 }
 
 object *apply(context *c, object *fsym, object *arglist) {

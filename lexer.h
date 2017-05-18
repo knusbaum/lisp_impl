@@ -6,6 +6,7 @@ enum toktype {
     LPAREN = 1,
     RPAREN,
     SYM,
+    KEYWORD,
     STRING,
     NUM,
     QUOTE,
