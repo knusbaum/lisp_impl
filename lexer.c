@@ -260,7 +260,7 @@ string *new_string() {
     return s;
 }
 
-string *new_string_copy(char *c) {
+string *new_string_copy(const char *c) {
     struct string *s = malloc(sizeof (struct string));
     size_t size = strlen(c) + 1;
     s->s = malloc(size);
@@ -306,6 +306,10 @@ const char *string_ptr(string *s) {
 
 int string_cmp(string *s1, string *s2) {
     return strcmp(string_ptr(s1), string_ptr(s2));
+}
+
+int string_equal(string *s1, string *s2) {
+    return string_cmp(s1, s2) == 0;
 }
 
 void string_free(string *s) {

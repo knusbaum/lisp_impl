@@ -40,6 +40,7 @@ size_t string_len(string *s);
 size_t string_cap(string *s);
 const char *string_ptr(string *s);
 int string_cmp(string *s1, string *s2);
+int string_equal(string *s1, string *s2);
 void string_free(string *s);
 
 #endif

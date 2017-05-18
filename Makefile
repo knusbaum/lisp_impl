@@ -12,4 +12,8 @@ all: lisp
 lisp: $(OBJECTS)
 	$(CC) $(CFLAGS) $(OBJECTS) -o $(EXECUTABLE)
 
+clean:
+	-@rm -Rf *~ *.o
 
+nuke: clean
+	-@rm -Rf $(EXECUTABLE)

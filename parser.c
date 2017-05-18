@@ -3,6 +3,7 @@
 #include "parser.h"
 #include "lexer.h"
 #include "map.h"
+#include "lisp.h"
 
 struct object {
     enum obj_type type;
@@ -10,6 +11,7 @@ struct object {
         string *str;
         cons *c;
         long num;
+        object *(*native)(void *, void *);
     };
 };
 
@@ -17,10 +19,6 @@ struct cons {
     object *car;
     object *cdr;
 };
-
-//struct symbol {
-//    string *symname;
-//};
 
 object *car(cons *c) {
     return c->car;
@@ -38,10 +36,12 @@ void setcdr(cons *c, object *o) {
     c->cdr = o;
 }
 
+void print_cons(cons *c);
+
 void print_cdr(object *o) {
     switch(otype(o)) {
     case O_SYM:
-        printf(" . %s (%p)", string_ptr(o->str), o);
+        printf(" . %s", string_ptr(o->str));
         break;
     case O_STR:
         printf(" . \"%s\"", string_ptr(o->str));
@@ -52,6 +52,9 @@ void print_cdr(object *o) {
     case O_CONS:
         printf(" ");
         print_cons(o->c);
+        break;
+    case O_FN_NATIVE:
+        printf(" . #<NATIVE FUNCTION>");
         break;
     }
 }
@@ -77,7 +80,7 @@ void print_object(object *o) {
     if(!o) return;
     switch(otype(o)) {
     case O_SYM:
-        printf("%s (%p)", string_ptr(o->str), o);
+        printf("%s", string_ptr(o->str));
         break;
     case O_STR:
         printf("\"%s\"", string_ptr(o->str));
@@ -88,27 +91,30 @@ void print_object(object *o) {
     case O_CONS:
         print_list(o->c);
         break;
+    case O_FN_NATIVE:
+        printf("#<NATIVE FUNCTION>");
+        break;
     }
 }
 
 map_t *symbols;
 
 object *intern(string *symname) {
-//    printf("Interning %s\n", string_ptr(symname));
+    //printf("Interning %s\n", string_ptr(symname));
     if(!symbols) {
-        symbols = map_create();
+        symbols = map_create((int (*)(void *, void *))string_equal);
     }
 
-    object *s = map_get(symbols, string_ptr(symname));
+    object *s = map_get(symbols, symname);
     if(!s) {
-//        printf("Wasn't interned yet %s\n", string_ptr(symname));
+        //printf("Wasn't interned yet %s\n", string_ptr(symname));
         s = new_object(O_SYM, symname);
         s->str = symname;
-        map_put(symbols, string_ptr(symname), s);
+        map_put(symbols, symname, s);
     }
     else {
+        //printf("Already interned %s\n", string_ptr(symname));
         string_free(symname);
-//        printf("Already interned %s\n", string_ptr(symname));
     }
     return s;
 }
@@ -132,16 +138,73 @@ enum obj_type otype(object *o) {
     return o->type;
 }
 
+string *oval_symbol(object *o) {
+    if(o->type != O_SYM) {
+        printf("Expected sym, but have: ");
+        print_object(o);
+        printf("\n");
+        abort();
+    }
+    return o->str;
+}
+
 string *oval_string(object *o) {
+    if(o->type != O_STR) {
+        printf("Expected string, but have: ");
+        print_object(o);
+        printf("\n");
+        abort();
+    }
     return o->str;
 }
 
 cons *oval_cons(object *o) {
+    if(o->type != O_CONS) {
+        printf("Expected cons, but have: ");
+        print_object(o);
+        printf("\n");
+        abort();
+    }
     return o->c;
 }
 
 long oval_long(object *o) {
+    if(o->type != O_NUM) {
+        printf("Expected number, but have: ");
+        print_object(o);
+        printf("\n");
+        abort();
+    }
     return o->num;
+}
+
+//void *oval_native(object *o) {
+object *(*oval_native(object *o))(void *, void *) {
+    if(o->type != O_FN_NATIVE) {
+        printf("Expected number, but have: ");
+        print_object(o);
+        printf("\n");
+        abort();
+    }
+    return o->native;
+}
+
+object *ocar(object *o) {
+    if(o->type != O_CONS) {
+        printf("Expected CONS cell, but have: ");
+        print_object(o);
+        printf("\n");
+    }
+    return car(o->c);
+}
+
+object *ocdr(object *o) {
+    if(o->type != O_CONS) {
+        printf("Expected CONS cell, but have: ");
+        print_object(o);
+        printf("\n");
+    }
+    return cdr(o->c);
 }
 
 object *new_object(enum obj_type t, void *o) {
@@ -158,6 +221,9 @@ object *new_object(enum obj_type t, void *o) {
         break;
     case O_CONS:
         ob->c = o;
+    case O_FN_NATIVE:
+        ob->native = o;
+        break;
     }
     return ob;
 }
@@ -201,7 +267,7 @@ struct token *currtok() {
 }
 
 void tok_match(enum toktype t) {
-    //printf("[parser.c][tok_match] Matching toktype %s\n", toktype_str(t)); 
+    //printf("[parser.c][tok_match] Matching toktype %s\n", toktype_str(t));
     if(currtok()->type != t) {
         printf("Failed to match toktype %s: got: ", toktype_str(t));
         print_token(currtok());
@@ -225,7 +291,7 @@ object *parse_list() {
         car_obj = next_form();
         break;
     }
-    cons *c = new_cons(); 
+    cons *c = new_cons();
     setcar(c, car_obj);
 
     object *cdr_obj;
@@ -242,7 +308,7 @@ object *parse_list() {
     //printf("[parser.c][parse_list] Parsing list for CDR.\n");
     //object *cdr_obj = parse_list();
     setcdr(c, cdr_obj);
-    
+
     object *conso = new_object(O_CONS, c);
     return conso;
 }
@@ -287,7 +353,7 @@ object *next_form() {
         get_next_tok();
         o = next_form();
         c = new_cons();
-        setcar(c, new_object(O_SYM, new_string_copy("QUOTE")));
+        setcar(c, intern(new_string_copy("QUOTE")));
         cdrcons = new_cons();
         setcar(cdrcons, o);
         o = new_object(O_CONS, cdrcons);

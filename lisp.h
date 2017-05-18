@@ -7,7 +7,7 @@
 typedef struct context context;
 
 context *new_context();
-
-object *eval(object *o, context *c);
+void init_context_funcs(context *c);
+object *eval(context *c, object *o);
 
 #endif
