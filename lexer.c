@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <string.h>
 #include "lexer.h"
 
 int is_whitespace(int c) {
@@ -12,11 +13,9 @@ int is_whitespace(int c) {
 
 int is_sym_char(int c) {
     return
-        isalnum(c) ||
-        c == '-' ||
-        c == '_' ||
-        c == '*' ||
-        c == '+';
+        !is_whitespace(c) &&
+        c != '(' &&
+        c != ')';
 }
 
 int _look;
@@ -134,27 +133,33 @@ void next_token(struct token *t) {
         t->type = STRING;
         t->data = parse_string();
         break;
+    case '.':
+        t->type = DOT;
+        t->data = NULL;
+        get_char();
+        break;
     case EOF:
         t->type = END;
         t->data = NULL;
         break;
     default:
-        if(isalpha(look())) {
-            t->type = SYM;
-            t->data = parse_symbol();
-        }
-        else if(isdigit(look())) {
+        if(isdigit(look())) {
             t->type = NUM;
             t->num = parse_long();
 //            get_char();
         }
+        //if(isalpha(look())) {
         else {
-            //printf("[lexer.c][next_token] Got invalid character: %c\n", look());
-            abort();
+            t->type = SYM;
+            t->data = parse_symbol();
         }
+//        else {
+//            //printf("[lexer.c][next_token] Got invalid character: %c\n", look());
+//            abort();
+//        }
     }
-    //printf("[lexer.c][next_token] Made token @ %p: ", t);
-    //print_token(t);
+//    printf("[lexer.c][next_token] Made token @ %p: ", t);
+//    print_token(t);
 }
 
 void free_token(struct token *t) {
@@ -171,6 +176,7 @@ void free_token(struct token *t) {
     case END:
     case NUM:
     case NONE:
+    case DOT:
         break;
     }
 }
@@ -198,6 +204,9 @@ const char *toktype_str(enum toktype t) {
     case QUOTE:
         return "QUOTE";
         break;
+    case DOT:
+        return "DOT";
+        break;
     case END:
         return "END";
         break;
@@ -213,6 +222,7 @@ void print_token(struct token *t) {
     case LPAREN:
     case RPAREN:
     case QUOTE:
+    case DOT:
     case END:
         printf("%s", toktype_str(t->type));
         break;
@@ -223,7 +233,7 @@ void print_token(struct token *t) {
         printf("%s, \"%s\"", toktype_str(t->type), string_ptr(t->data));
         break;
     case NUM:
-        printf("%s, %d", toktype_str(t->type), t->num);
+        printf("%s, %ld", toktype_str(t->type), t->num);
         break;
     default:
         printf("UNKNOWN: %d", t->type);
@@ -292,6 +302,10 @@ size_t string_cap(string *s) {
 
 const char *string_ptr(string *s) {
     return s->s;
+}
+
+int string_cmp(string *s1, string *s2) {
+    return strcmp(string_ptr(s1), string_ptr(s2));
 }
 
 void string_free(string *s) {

@@ -2,44 +2,45 @@
 #include <stdlib.h>
 #include "lexer.h"
 #include "parser.h"
+#include "lisp.h"
 
 int main(void) {
-    string *s = new_string();
-    string_append(s, 'a');
-    string_append(s, 'b');
-    string_append(s, 'c');
-    string_append(s, 'd');
-    string_append(s, 'e');
-    string_append(s, 'f');
-    string_append(s, 'g');
-    string_append(s, 'h');
-    string_append(s, 'i');
-    string_append(s, 'j');
-    string_append(s, 'k');
-    string_append(s, 'l');
-    string_append(s, 'm');
-    string_append(s, 'n');
-    string_append(s, 'o');
-    string_append(s, 'p');
-    string_append(s, 'q');
-    string_append(s, 'r');
-    string_append(s, 's');
-    string_append(s, 't');
-    string_append(s, 'u');
-    string_append(s, 'v');
-    string_append(s, 'w');
-    string_append(s, 'x');
-    string_append(s, 'y');
-    string_append(s, 'z');
-    printf("String: [%s]\n", string_ptr(s));
-    printf("String len: %d\n", string_len(s));
-    printf("String cap: %d\n", string_cap(s));
-    printf("Trimming Capacity.\n");
-    string_trim_capacity(s);
-    printf("String: [%s]\n", string_ptr(s));
-    printf("String len: %d\n", string_len(s));
-    printf("String cap: %d\n", string_cap(s));
-
+//    string *s = new_string();
+//    string_append(s, 'a');
+//    string_append(s, 'b');
+//    string_append(s, 'c');
+//    string_append(s, 'd');
+//    string_append(s, 'e');
+//    string_append(s, 'f');
+//    string_append(s, 'g');
+//    string_append(s, 'h');
+//    string_append(s, 'i');
+//    string_append(s, 'j');
+//    string_append(s, 'k');
+//    string_append(s, 'l');
+//    string_append(s, 'm');
+//    string_append(s, 'n');
+//    string_append(s, 'o');
+//    string_append(s, 'p');
+//    string_append(s, 'q');
+//    string_append(s, 'r');
+//    string_append(s, 's');
+//    string_append(s, 't');
+//    string_append(s, 'u');
+//    string_append(s, 'v');
+//    string_append(s, 'w');
+//    string_append(s, 'x');
+//    string_append(s, 'y');
+//    string_append(s, 'z');
+//    printf("String: [%s]\n", string_ptr(s));
+//    printf("String len: %d\n", string_len(s));
+//    printf("String cap: %d\n", string_cap(s));
+//    printf("Trimming Capacity.\n");
+//    string_trim_capacity(s);
+//    printf("String: [%s]\n", string_ptr(s));
+//    printf("String len: %d\n", string_len(s));
+//    printf("String cap: %d\n", string_cap(s));
+//
     while(1) {
         printf("> ");
 //        struct token t;
@@ -48,8 +49,12 @@ int main(void) {
 //        if(t.type == END) break;
         object *o = next_form();
         if(o) {
-            //printf("Got object: ");
-            print_object(o);
+//            printf("Got object: ");
+//            print_object(o);
+//            printf("\n Evaling.\n");
+            object *b = eval(o, NULL);
+//            printf("Got: ");
+            print_object(b);
             printf("\n");
         }
         else {

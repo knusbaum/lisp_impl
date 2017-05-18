@@ -11,6 +11,7 @@ enum toktype {
     STRING,
     NUM,
     QUOTE,
+    DOT,
     END
 };
 
@@ -32,12 +33,13 @@ void print_token(struct token *t);
 typedef struct string string;
 
 string *new_string();
-string *new_string_copy(char *c);
+string *new_string_copy(const char *c);
 void string_append(string *s, char c);
 void string_trim_capacity(string *s);
 size_t string_len(string *s);
 size_t string_cap(string *s);
 const char *string_ptr(string *s);
+int string_cmp(string *s1, string *s2);
 void string_free(string *s);
 
 #endif

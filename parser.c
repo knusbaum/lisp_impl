@@ -1,11 +1,14 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include "parser.h"
 #include "lexer.h"
+#include "map.h"
 
 struct object {
     enum obj_type type;
     union {
-        void *o;
+        string *str;
+        cons *c;
         long num;
     };
 };
@@ -14,6 +17,10 @@ struct cons {
     object *car;
     object *cdr;
 };
+
+//struct symbol {
+//    string *symname;
+//};
 
 object *car(cons *c) {
     return c->car;
@@ -34,17 +41,17 @@ void setcdr(cons *c, object *o) {
 void print_cdr(object *o) {
     switch(otype(o)) {
     case O_SYM:
-        printf(" . %s", string_ptr((string *)o->o));
+        printf(" . %s (%p)", string_ptr(o->str), o);
         break;
     case O_STR:
-        printf(" . \"%s\"", string_ptr((string *)o->o));
+        printf(" . \"%s\"", string_ptr(o->str));
         break;
     case O_NUM:
-        printf(" . %d", o->num);
+        printf(" . %ld", o->num);
         break;
     case O_CONS:
         printf(" ");
-        print_cons(o->o);
+        print_cons(o->c);
         break;
     }
 }
@@ -54,7 +61,7 @@ void print_cons(cons *c) {
     if(o) {
         print_object(o);
         o = cdr(c);
-        if(o) {
+        if(o != obj_nil()) {
             print_cdr(o);
         }
     }
@@ -70,18 +77,48 @@ void print_object(object *o) {
     if(!o) return;
     switch(otype(o)) {
     case O_SYM:
-        printf("%s", string_ptr((string *)o->o));
+        printf("%s (%p)", string_ptr(o->str), o);
         break;
     case O_STR:
-        printf("\"%s\"", string_ptr((string *)o->o));
+        printf("\"%s\"", string_ptr(o->str));
         break;
     case O_NUM:
-        printf("%d", o->num);
+        printf("%ld", o->num);
         break;
     case O_CONS:
-        print_list(o->o);
+        print_list(o->c);
         break;
     }
+}
+
+map_t *symbols;
+
+object *intern(string *symname) {
+//    printf("Interning %s\n", string_ptr(symname));
+    if(!symbols) {
+        symbols = map_create();
+    }
+
+    object *s = map_get(symbols, string_ptr(symname));
+    if(!s) {
+//        printf("Wasn't interned yet %s\n", string_ptr(symname));
+        s = new_object(O_SYM, symname);
+        s->str = symname;
+        map_put(symbols, string_ptr(symname), s);
+    }
+    else {
+        string_free(symname);
+//        printf("Already interned %s\n", string_ptr(symname));
+    }
+    return s;
+}
+
+object *nil;
+object *obj_nil() {
+    if(!nil) {
+        nil = intern(new_string_copy("NIL"));
+    }
+    return nil;
 }
 
 cons *new_cons() {
@@ -95,13 +132,42 @@ enum obj_type otype(object *o) {
     return o->type;
 }
 
+string *oval_string(object *o) {
+    return o->str;
+}
+
+cons *oval_cons(object *o) {
+    return o->c;
+}
+
+long oval_long(object *o) {
+    return o->num;
+}
+
 object *new_object(enum obj_type t, void *o) {
     object *ob = malloc(sizeof (object));
     ob->type = t;
-    ob->o = o;
+    switch(t) {
+    case O_SYM:
+    case O_STR:
+        ob->str = o;
+        break;
+    case O_NUM:
+        printf("Cannot assign a num with this function.\n");
+        abort();
+        break;
+    case O_CONS:
+        ob->c = o;
+    }
     return ob;
 }
 
+object *new_object_long(long l) {
+    object *ob = malloc(sizeof (object));
+    ob->type = O_NUM;
+    ob->num = l;
+    return ob;
+}
 
 
 /** Actual parser **/
@@ -118,12 +184,7 @@ void get_next_tok() {
     //print_token(&current);
 }
 
-void tok_match(enum toktype t) {
-    //printf("[parser.c][tok_match] Matching toktype %s\n", toktype_str(t)); 
-    if(current.type != t) {
-        printf("Failed to match toktype %d\n", t);
-        abort();
-    }
+void clear_tok() {
     free_token(&current);
     current.type = NONE;
 }
@@ -139,6 +200,16 @@ struct token *currtok() {
     return &current;
 }
 
+void tok_match(enum toktype t) {
+    //printf("[parser.c][tok_match] Matching toktype %s\n", toktype_str(t)); 
+    if(currtok()->type != t) {
+        printf("Failed to match toktype %s: got: ", toktype_str(t));
+        print_token(currtok());
+        abort();
+    }
+    clear_tok();
+}
+
 object *parse_list() {
     //printf("[parser.c][parse_list] Entering parse_list\n");
     object *car_obj = NULL;
@@ -146,7 +217,8 @@ object *parse_list() {
     case RPAREN:
         //printf("[parser.c][parse_list] Found end of list.\n");
         tok_match(RPAREN);
-        return NULL;
+        //return NULL;
+        return obj_nil();
         break;
     default:
         //printf("[parser.c][parse_list] Getting next form for CAR.\n");
@@ -155,9 +227,20 @@ object *parse_list() {
     }
     cons *c = new_cons(); 
     setcar(c, car_obj);
-    
+
+    object *cdr_obj;
+    switch(currtok()->type) {
+    case DOT:
+        tok_match(DOT);
+        cdr_obj = next_form();
+        tok_match(RPAREN);
+        break;
+    default:
+        cdr_obj = parse_list();
+        break;
+    }
     //printf("[parser.c][parse_list] Parsing list for CDR.\n");
-    object *cdr_obj = parse_list();
+    //object *cdr_obj = parse_list();
     setcdr(c, cdr_obj);
     
     object *conso = new_object(O_CONS, c);
@@ -167,7 +250,7 @@ object *parse_list() {
 object *next_form() {
     if(currtok()->type == NONE) get_next_tok();
 
-    object *o, o2;
+    object *o;
     cons *c;
     cons *cdrcons;
     switch(currtok()->type) {
@@ -179,22 +262,25 @@ object *next_form() {
     case SYM:
         //printf("[parser.c][next_form] Got a symbol: ");
         //print_token(currtok());
-        o = new_object(O_SYM, new_string_copy(string_ptr(currtok()->data)));
-        get_next_tok();
+        o = intern(new_string_copy(string_ptr(currtok()->data)));
+        //get_next_tok();
+        clear_tok();
         return o;
         break;
     case STRING:
         //printf("[parser.c][next_form] Got a string: ");
         //print_token(currtok());
         o = new_object(O_STR, new_string_copy(string_ptr(currtok()->data)));
-        get_next_tok();
+        //get_next_tok();
+        clear_tok();
         return o;
         break;
     case NUM:
         //printf("[parser.c][next_form] Got a number: ");
         //print_token(currtok());
-        o = new_object(O_NUM, currtok()->num);
-        get_next_tok();
+        o = new_object_long(currtok()->num);
+        //get_next_tok();
+        clear_tok();
         return o;
         break;
     case QUOTE:
