@@ -32,6 +32,9 @@ void print_object(object *o);
 /** Symbol Operations **/
 object *interns(char *symname);
 object *intern(string *symname);
+
+/** Important Objects **/
 object *obj_nil();
+object *obj_t();
 
 #endif

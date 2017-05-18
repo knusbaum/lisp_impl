@@ -235,7 +235,15 @@ object *intern(string *symname) {
 object *nil;
 object *obj_nil() {
     if(!nil) {
-        nil = intern(new_string_copy("NIL"));
+        nil = interns("NIL");
     }
     return nil;
+}
+
+object *otrue;
+object *obj_t() {
+    if(!otrue) {
+        otrue = interns("T");
+    }
+    return otrue;
 }

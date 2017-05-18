@@ -175,13 +175,8 @@ object *eq(context *c, object *arglist) {
     assert_length(c, arglist, 2);
     object *o1 = ocar(arglist);
     object *o2 = ocar(ocdr(arglist));
-    printf("Comparing : ");
-    print_object(o1);
-    printf("(%p)\nAnd: ", o1);
-    print_object(o2);
-    printf("(%p)\n", o2);
     if(o1 == o2) {
-        return interns("T");
+        return obj_t();
     }
     else {
         return obj_nil();
@@ -217,6 +212,9 @@ object *apply(context *c, object *fsym, object *arglist) {
 
 object *eval_sym(context *c, object *o) {
     if(o == obj_nil()) {
+        return o;
+    }
+    if(o == obj_t()) {
         return o;
     }
 
