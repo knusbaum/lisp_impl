@@ -5,13 +5,11 @@
 #include "lisp.h"
 #include "threaded_vm.h"
 
-extern void test();
 
 int main(void) {
 
-    test();
-    
-//    context *c = new_context();
+    context *c = new_context();
+    vm_init(c);
 //    init_context_funcs(c);
     while(1) {
         printf("> ");
@@ -21,7 +19,8 @@ int main(void) {
 //            print_object(b);
 //            printf("\n");
             //compile_bytecode(c, o);
-            object *b = vm_eval(o);
+            object *b = vm_eval(c, o);
+            printf("Object: ");
             print_object(b);
             printf("\n");
         }
