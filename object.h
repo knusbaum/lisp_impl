@@ -26,7 +26,7 @@ enum obj_type otype(object *o);
 string *oval_symbol(object *o);
 string *oval_string(object *o);
 long oval_long(object *o);
-object *(*oval_native(object *o))(void *, void *);
+void (*oval_native(object *o))(void *, long);
 object *oval_fn_args(object *o);
 object *oval_fn_body(object *o);
 object *ocar(object *o);

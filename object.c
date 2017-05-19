@@ -38,7 +38,7 @@ struct object {
         string *str;
         cons *c;
         long num;
-        object *(*native)(void *, void *);
+        void (*native)(void *, long);
     };
 };
 
@@ -139,7 +139,7 @@ long oval_long(object *o) {
     return o->num;
 }
 
-object *(*oval_native(object *o))(void *, void *) {
+void (*oval_native(object *o))(void *, long) {
     if(o->type != O_FN_NATIVE) {
         printf("Expected number, but have: ");
         print_object(o);

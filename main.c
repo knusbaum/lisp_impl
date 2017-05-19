@@ -11,8 +11,8 @@ int main(void) {
 
     test();
     
-    context *c = new_context();
-    init_context_funcs(c);
+//    context *c = new_context();
+//    init_context_funcs(c);
     while(1) {
         printf("> ");
         object *o = next_form(NULL);

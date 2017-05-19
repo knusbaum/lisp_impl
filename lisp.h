@@ -13,10 +13,10 @@ void free_context(context *c);
 object *lookup_var(context *c, object *sym);
 object *bind_var(context *c, object *sym, object *var);
 object *lookup_fn(context *c, object *sym);
-void bind_native_fn(context *c, object *sym, object *(*fn)(context *, object *));
+void bind_native_fn(context *c, object *sym, void (*fn)(context *, long));
 void bind_fn(context *c, object *sym, object *fn);
 
-void init_context_funcs(context *c);
-object *eval(context *c, object *o);
+//void init_context_funcs(context *c);
+//object *eval(context *c, object *o);
 
 #endif

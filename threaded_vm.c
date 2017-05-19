@@ -12,6 +12,8 @@ void init() {
     stack = malloc(sizeof (object *) * INIT_STACK);
     s_off = 0;
     stack_size = INIT_STACK;
+
+
 }
 
 void push(object *o) {
@@ -28,17 +30,28 @@ object *pop() {
     return stack[--s_off];
 }
 
-void call(long variance) {
-    (void)variance;
-    pop();
-//    object *fsym = pop();
-//    object *args = obj_nil();
+void vm_plus(context *c, long variance) {
+    (void)c;
     long val = 0;
     for(int i = 0; i < variance; i++) {
         //args = new_object_cons(pop(), args);
         val += oval_long(pop());
     }
     push(new_object_long(val));
+}
+
+void call(context *c, long variance) {
+    (void)variance;
+    object *fsym = pop();
+//    object *args = obj_nil();
+    object *fn = lookup_fn(c, fsym);
+    if(fn == obj_nil() || fn == NULL) {
+        printf("Cannot call function: ");
+        print_object(fsym);
+        printf("\n");
+        abort();
+    }
+    oval_native(fn)(c, variance);
 }
 
 void bind(context *c) {
@@ -105,12 +118,12 @@ static void compile_cons(context *c, object *o) {
         printf("push function %s\n", string_ptr(oval_symbol(func)));
         push(func);
         printf("call (%d)\n", num_args);
-        call(num_args);
+        call(c, num_args);
     }
 }
 
 void compile_bytecode(context *c, object *o) {
-    
+
     switch(otype(o)) {
     case O_CONS:
         compile_cons(c, o);
@@ -138,6 +151,9 @@ void compile_bytecode(context *c, object *o) {
 
 object *vm_eval(object *o) {
     context *c = new_context();
+
+    bind_native_fn(c, interns("+"), vm_plus);
+
     compile_bytecode(c, o);
     free_context(c);
     return pop();
