@@ -5,6 +5,21 @@
 #include "map.h"
 #include "lisp.h"
 
+struct parser {
+    FILE *f;
+};
+
+parser *new_parser(char *fname) {
+    FILE *f = fopen(fname, "r");
+    parser *p = malloc(sizeof (parser));
+    p->f = f;
+    return p;
+}
+
+void destroy_parser(parser *p) {
+    fclose(p->f);
+    free(p);
+}
 
 struct token current;
 

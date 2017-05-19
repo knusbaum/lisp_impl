@@ -7,7 +7,8 @@ OBJECTS=main.o \
 		map.o \
 		parser.o \
 		object.o \
-		lstring.o
+		lstring.o \
+		threaded_vm.o
 
 all: lisp
 

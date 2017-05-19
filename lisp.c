@@ -87,6 +87,18 @@ context *new_context() {
     return c;
 }
 
+context *push_context(context *curr) {
+    context *c = new_context();
+    c->parent = curr;
+    return c;
+}
+
+context *pop_context(context *curr) {
+    context *ret = curr->parent;
+    free_context(curr);
+    return ret;
+}
+
 void free_context(context *c) {
     map_destroy(c->vars);
     map_destroy(c->funcs);
