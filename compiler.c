@@ -18,7 +18,7 @@ unsigned int i;
 
 char *mk_label() {
     char *label = malloc(12); // 10 digits + L + \0
-    sprintf(label, "L%010u", i++);
+    sprintf(label, "L%u", i++);
     return label;
 }
 
@@ -89,59 +89,59 @@ void free_compiled_chunk(compiled_chunk *c) {
 }
 
 void bs_push(compiled_chunk *cc, object *o) {
-//    printf("bs_push: ");
-//    print_object(o);
-//    printf("\n");
+    printf("%ld@%p bs_push: ", cc->b_off, cc);
+    print_object(o);
+    printf("\n");
     add_binstr_arg(cc, map_get(addrs, "push"), o);
 }
 
 void bs_pop(compiled_chunk *cc) {
-//    printf("bs_pop\n");
+    printf("%ld@%p bs_pop\n", cc->b_off, cc);
     add_binstr_arg(cc, map_get(addrs, "pop"), NULL);
 }
 
 void bs_push_context(compiled_chunk *cc) {
-//    printf("bs_push_context\n");
+    printf("%ld@%p bs_push_context\n", cc->b_off, cc);
     add_binstr_arg(cc, map_get(addrs, "push_lex_context"), NULL);
 }
 
 void bs_pop_context(compiled_chunk *cc) {
-//    printf("bs_pop_context\n");
+    printf("%ld@%p bs_pop_context\n", cc->b_off, cc);
     add_binstr_arg(cc, map_get(addrs, "pop_lex_context"), NULL);
 }
 
 void bs_bind(compiled_chunk *cc) {
-//    printf("bs_bind\n");
+    printf("%ld@%p bs_bind\n", cc->b_off, cc);
     add_binstr_arg(cc, map_get(addrs, "bind"), NULL);
 }
 
 void bs_resolve(compiled_chunk *cc) {
-//    printf("bs_resolve_context\n");
+    printf("%ld@%p bs_resolve_context\n", cc->b_off, cc);
     add_binstr_arg(cc, map_get(addrs, "resolve_sym"), NULL);
 }
 
 void bs_call(compiled_chunk *cc, long variance) {
-//    printf("bs_call (%ld)\n", variance);
+    printf("%ld@%p bs_call (%ld)\n", cc->b_off, cc, variance);
     add_binstr_variance(cc, map_get(addrs, "call"), variance);
 }
 
 void bs_exit(compiled_chunk *cc) {
-//    printf("bs_exit\n");
+    printf("%ld@%p bs_exit\n", cc->b_off, cc);
     add_binstr_arg(cc, map_get(addrs, "exit"), NULL);
 }
 
 void bs_label(compiled_chunk *cc, char *label) {
-//    printf("bs_label: %s\n", label);
+    printf("%ld@%p bs_label: %s\n", cc->b_off, cc, label);
     map_put(cc->labels, label, (void *)cc->b_off);
 }
 
 void bs_go(compiled_chunk *cc, char *label) {
-//    printf("bs_go: %s\n", label);
+    printf("%ld@%p bs_go: %s\n", cc->b_off, cc, label);
     add_binstr_str(cc, map_get(addrs, "go"), label);
 }
 
 void bs_go_if_nil(compiled_chunk *cc, char *label) {
-//    printf("bs_go_if_nil: %s\n", label);
+    printf("%ld@%p bs_go_if_nil: %s\n", cc->b_off, cc, label);
     add_binstr_str(cc, map_get(addrs, "go_if_nil"), label);
 }
 
@@ -229,8 +229,11 @@ static void vm_fn(compiled_chunk *cc, context *c, object *o) {
         abort();
     }
 
+    object *fn = new_object_fn_compiled(NULL);
+    bind_fn(c, fname, fn);
+        
     compiled_chunk *fn_cc = compile_fn(c, new_object_fn(fargs, body));
-    bind_fn(c, fname, new_object_fn_compiled(fn_cc));
+    oset_fn_compiled(fn, fn_cc);
 }
 
 void vm_if(compiled_chunk *cc, context *c, object *o) {
@@ -238,24 +241,18 @@ void vm_if(compiled_chunk *cc, context *c, object *o) {
     object *true_branch = ocdr(cond);
     object *false_branch = ocar(ocdr(true_branch));
 
-    char *true_branch_lab = mk_label();
     char *false_branch_lab = mk_label();
     char *end_branch_lab = mk_label();
 
     compile_bytecode(cc, c, ocar(cond));
     bs_go_if_nil(cc, false_branch_lab);
 
-    bs_label(cc, true_branch_lab);
     compile_bytecode(cc, c, ocar(true_branch));
     bs_go(cc, end_branch_lab);
 
     bs_label(cc, false_branch_lab);
     compile_bytecode(cc, c, false_branch);
     bs_label(cc, end_branch_lab);
-
-    free(true_branch_lab);
-    free(false_branch_lab);
-    free(end_branch_lab);
 }
 
 void vm_defmacro(compiled_chunk *cc, context *c, object *o) {
@@ -296,7 +293,8 @@ void vm_backtick(compiled_chunk *cc, context *c, object *o) {
                 vm_backtick(cc, c, ocar(each));
                 num_args++;
             }
-            bs_push(cc, interns("LIST"));
+            object *fn = lookup_fn(c, interns("LIST"));
+            bs_push(cc, fn);
             bs_call(cc, num_args);
         }
         break;
@@ -358,7 +356,12 @@ static void compile_cons(compiled_chunk *cc, context *c, object *o) {
             num_args++;
             compile_bytecode(cc, c, ocar(curr));
         }
-        bs_push(cc, func);
+        object *fn = lookup_fn(c, func);
+        if(!fn) {
+            printf("No such function: %s\n", string_ptr(oval_symbol(func)));
+            abort();
+        }
+        bs_push(cc, fn);
         bs_call(cc, num_args);
     }
 }
@@ -443,7 +446,6 @@ compiled_chunk *compile_form(context *c, object *o) {
     print_object(o);
     printf("\n");
 
-//    printf("Compiling bytecode\n");
     compile_bytecode(cc, c, o);
     bs_exit(cc);
 

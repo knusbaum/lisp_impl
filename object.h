@@ -23,6 +23,8 @@ enum obj_type {
     O_MACRO_COMPILED
 };
 
+void object_set_name(object *o, char *name);
+
 /** Object Operations **/
 object *new_object(enum obj_type t, void *o);
 object *new_object_cons(object *car, object *cdr);
@@ -41,6 +43,7 @@ void (*oval_native(object *o))(void *, long);
 object *oval_fn_args(object *o); // Also for getting macro args
 object *oval_fn_body(object *o); // Also for getting macro body
 compiled_chunk *oval_fn_compiled(object *o);
+void oset_fn_compiled(object *o, compiled_chunk *cc);
 compiled_chunk *oval_macro_compiled(object *o);
 object *ocar(object *o);
 object *ocdr(object *o);

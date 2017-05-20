@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include "context.h"
 #include "map.h"
 
@@ -31,7 +32,9 @@ object *lookup_fn(context *c, object *sym) {
 }
 
 void bind_native_fn(context *c, object *sym, void (*fn)(context *, long)) {
-    map_put(c->funcs, sym, new_object(O_FN_NATIVE, fn));
+    object *o =  new_object(O_FN_NATIVE, fn);
+    map_put(c->funcs, sym, o);
+    object_set_name(o, strdup(string_ptr(oval_symbol(sym))));
 }
 
 void bind_fn(context *c, object *sym, object *fn) {

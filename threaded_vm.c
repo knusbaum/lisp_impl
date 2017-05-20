@@ -78,10 +78,10 @@ void push(object *o) {
         stack_size *= 2;
         stack = realloc(stack, stack_size * sizeof (object *));
     }
-    if(s_off == 4096) {
-        printf("Blew the stack.\n");
-        abort();
-    }
+//    if(s_off == 4096) {
+//        printf("Blew the stack.\n");
+//        abort();
+//    }
     stack[s_off++] = o;
 }
 
@@ -224,12 +224,12 @@ void vm_cons(context *c, long variance) {
 //}
 
 void call(context *c, long variance) {
-    object *fsym = pop();
+    //object *fsym = pop();
 
-    object *fn = lookup_fn(c, fsym);
+    object *fn = pop(); //lookup_fn(c, fsym);
     if(fn == obj_nil() || fn == NULL) {
         printf("Cannot call function: ");
-        print_object(fsym);
+        print_object(fn);
         printf("\n");
         abort();
     }
@@ -321,71 +321,72 @@ void *___vm(context *c, compiled_chunk *cc, int _get_vm_addrs) {
     size_t target;
 
 push:
-//    printf("PUSH: ");
-//    print_object(bs->arg);
-//    printf("\n");
+    printf("%ld@%p, PUSH: ", bs - cc->bs, cc);
+    print_object(bs->arg);
+    printf("\n");
     push(bs->arg);
     NEXTI;
 pop:
-//    printf("POP\n");
-    pop();
+    printf("%ld@%p POP: ", bs - cc->bs, cc);
+    print_object(pop());
+    printf("\n");
     NEXTI;
 call:
-//    printf("CALL (%ld)\n", bs->variance);
+    printf("%ld@%p CALL (%ld)\n", bs - cc->bs, cc, bs->variance);
     call(c, bs->variance);
     NEXTI;
 resolve_sym:
-//    printf("RESOLVE_SYM\n");
+    printf("%ld@%p RESOLVE_SYM\n", bs - cc->bs, cc);
     resolve(c);
     NEXTI;
 bind:
-//    printf("BIND\n");
+    printf("%ld@%p BIND\n", bs - cc->bs, cc);
     bind(c);
     NEXTI;
 push_lex_context:
-//    printf("PUSH_LEX_CONTEXT\n");
+    printf("%ld@%p PUSH_LEX_CONTEXT\n", bs - cc->bs, cc);
     c = push_context(c);
     NEXTI;
 pop_lex_context:
-//    printf("POP_LEX_CONTEXT\n");
+    printf("%ld@%p POP_LEX_CONTEXT\n", bs - cc->bs, cc);
     c = pop_context(c);
     NEXTI;
 go:
     target = (size_t)map_get(cc->labels, bs->str);
-    //printf("GO (%ld)\n", target);
-    bs->instr = &&go_optim;
-    bs->offset = target;
+    printf("%ld@%p GO (%s)(%ld)\n", bs - cc->bs, cc, bs->str, target);
+    //bs->instr = &&go_optim;
+    //bs->offset = target;
     bs = cc->bs + target;
     goto *bs->instr;
 go_if_nil:
-    //target = (size_t)map_get(cc->labels, bs->str);
-    //printf("GO_IF_NIL (%ld) ", target);
+    target = (size_t)map_get(cc->labels, bs->str);
+    printf("%ld@%p GO_IF_NIL (%s)(%ld) ", bs - cc->bs, cc, bs->str, target);
     if(pop() == obj_nil()) {
-        //printf("(jumping to %p)\n", (cc->bs + target)->instr);
-        target = (size_t)map_get(cc->labels, bs->str);
-        bs->instr = &&go_if_nil_optim;
-        bs->offset = target;
+        printf("(jumping to %p)\n", (cc->bs + target)->instr);
+        //target = (size_t)map_get(cc->labels, bs->str);
+//        bs->instr = &&go_if_nil_optim;
+//        bs->offset = target;
         bs = cc->bs + target;
         goto *bs->instr;
     }
-//    printf("(not jumping)\n");
+    printf("(not jumping)\n");
     NEXTI;
-go_optim:
-//    printf("GO_OPTIM (%ld)\n", bs->offset);
-    bs = cc->bs + bs->offset;
-    goto *bs->instr;
-go_if_nil_optim:
-//    printf("GO_IF_NIL_OPTIM (%ld) ", bs->offset);
-    if(pop() == obj_nil()) {
+//go_optim:
+//    printf("%ld@%p GO_OPTIM (%ld)\n", bs - cc->bs, cc, bs->offset);
+//    bs = cc->bs + bs->offset;
+//    goto *bs->instr;
+//go_if_nil_optim:
+//    printf("%ld@%p GO_IF_NIL_OPTIM (%ld) ", bs - cc->bs, cc, bs->offset);
+//    if(pop() == obj_nil()) {
 //        printf("(jumping)\n");
-        bs = cc->bs + bs->offset;
-        goto *bs->instr;
-    }
+//        bs = cc->bs + bs->offset;
+//        goto *bs->instr;
+//    }
 //    printf("(not jumping)\n");
-    NEXTI;
+//    NEXTI;
 
 exit:
-    //printf("EXIT\n");
+    printf("%ld@%p EXIT\n", bs - cc->bs, cc);
     return NULL;
 }
 

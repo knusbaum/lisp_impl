@@ -41,7 +41,16 @@ struct object {
         void (*native)(void *, long);
         compiled_chunk *cc;
     };
+    char *name;
 };
+
+void object_set_name(object *o, char *name) {
+    o->name = name;
+}
+
+char *object_get_name(object *o) {
+    return o->name;
+}
 
 object *new_object(enum obj_type t, void *o) {
     object *ob = malloc(sizeof (object));
@@ -196,6 +205,10 @@ compiled_chunk *oval_fn_compiled(object *o) {
     return o->cc;
 }
 
+void oset_fn_compiled(object *o, compiled_chunk *cc) {
+    o->cc = cc;
+}
+
 compiled_chunk *oval_macro_compiled(object *o) {
     return o->cc;
 }
@@ -263,7 +276,7 @@ static void print_cdr(object *o) {
         print_cons(o->c);
         break;
     case O_FN_NATIVE:
-        printf(" . #<NATIVE FUNCTION>");
+        printf(" . #<NATIVE FUNCTION (%s)>", o->name);
         break;
     case O_FN:
         printf(" . #<FUNCTION @ %p>", o);
@@ -314,7 +327,7 @@ void print_object(object *o) {
         print_list(o->c);
         break;
     case O_FN_NATIVE:
-        printf("#<NATIVE FUNCTION>");
+        printf("#<NATIVE FUNCTION %s>", o->name);
         break;
     case O_FN:
         printf("#<FUNCTION @ %p>", o);
