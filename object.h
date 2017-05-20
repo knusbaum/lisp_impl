@@ -11,7 +11,7 @@ typedef struct compiled_chunk compiled_chunk;
 //** END REFACTORING **/
 
 enum obj_type {
-    O_SYM,
+    O_SYM = 0,
     O_STR,
     O_NUM,
     O_CONS,

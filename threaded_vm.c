@@ -45,10 +45,15 @@ void vm_minus(context *c, long variance);
 void vm_mult(context *c, long variance);
 void vm_div(context *c, long variance);
 void vm_num_eq(context *c, long variance);
+void vm_num_gt(context *c, long variance);
+void vm_num_lt(context *c, long variance);
 void vm_list(context *c, long variance);
 void vm_car(context *c, long variance);
 void vm_cdr(context *c, long variance);
 void vm_cons(context *c, long variance);
+void vm_length(context *c, long variance);
+void vm_eq(context *c, long variance);
+
 //void vm_macroexpand(context *c, long variance);
 
 void vm_init(context *c) {
@@ -64,10 +69,14 @@ void vm_init(context *c) {
     bind_native_fn(c, interns("*"), vm_mult);
     bind_native_fn(c, interns("/"), vm_div);
     bind_native_fn(c, interns("="), vm_num_eq);
+    bind_native_fn(c, interns(">"), vm_num_gt);
+    bind_native_fn(c, interns("<"), vm_num_lt);
     bind_native_fn(c, interns("LIST"), vm_list);
     bind_native_fn(c, interns("CAR"), vm_car);
     bind_native_fn(c, interns("CDR"), vm_cdr);
     bind_native_fn(c, interns("CONS"), vm_cons);
+    bind_native_fn(c, interns("LENGTH"), vm_length);
+    bind_native_fn(c, interns("EQ"), vm_eq);
     //bind_native_fn(c, interns("MACROEXPAND"), vm_macroexpand);
 
     addrs = get_vm_addrs();
@@ -159,6 +168,36 @@ void vm_num_eq(context *c, long variance) {
     }
 }
 
+void vm_num_gt(context *c, long variance) {
+    (void)c;
+    if(variance != 2) {
+        printf("Expected exactly 2 arguments, but got %ld.\n", variance);
+        abort();
+    }
+    // args are reversed.
+    if(oval_long(pop()) <= oval_long(pop())) {
+        push(obj_t());
+    }
+    else {
+        push(obj_nil());
+    }
+}
+
+void vm_num_lt(context *c, long variance) {
+    (void)c;
+    if(variance != 2) {
+        printf("Expected exactly 2 arguments, but got %ld.\n", variance);
+        abort();
+    }
+    // args are reversed.
+    if(oval_long(pop()) >= oval_long(pop())) {
+        push(obj_t());
+    }
+    else {
+        push(obj_nil());
+    }
+}
+
 void vm_list(context *c, long variance) {
     (void)c;
     object *cons = obj_nil();
@@ -199,6 +238,35 @@ void vm_cons(context *c, long variance) {
     object *cons = new_object_cons(car, cdr);
     push(cons);
 }
+
+void vm_length(context *c, long variance) {
+    (void)c;
+    if(variance != 1) {
+        printf("Expected exactly 1 argument, but got %ld.\n", variance);
+        abort();
+    }
+
+    long len = 0;
+    for(object *curr = pop(); curr != obj_nil(); curr = ocdr(curr)) {
+        len++;
+    }
+    push(new_object_long(len));
+}
+
+void vm_eq(context *c, long variance) {
+    (void)c;
+    if(variance != 2) {
+        printf("Expected exactly 2 arguments, but got %ld.\n", variance);
+        abort();
+    }
+    if(pop() == pop()) {
+        push(obj_t());
+    }
+    else {
+        push(obj_nil());
+    }
+}
+
 //void fn_call(compiled_chunk *cc, context *c, object *fn);
 //void vm_macroexpand(compiled_chunk *cc, context *c, long variance) {
 //    (void)c;

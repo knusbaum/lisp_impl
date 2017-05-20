@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include "object.h"
+#include "compiler.h"
 #include "map.h"
 
 typedef struct cons cons;

@@ -1,4 +1,4 @@
-(defmacro cond (args)
+(defmacro cond (&rest args)
   (let ((cond-pair (car args))
         (rest (cdr args)))
     (let ((a (car cond-pair))
@@ -14,4 +14,3 @@
            ((= x 2) 1)
            (t (+ (fib (- x 1))
                  (fib (- x 2)))))))
-

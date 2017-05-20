@@ -145,19 +145,49 @@ void bs_go_if_nil(compiled_chunk *cc, char *label) {
     add_binstr_str(cc, map_get(addrs, "go_if_nil"), label);
 }
 
+// Reverse the bind order and handle variadic calls
+long fn_bind_params(compiled_chunk *cc, context *c, object *curr, long variance) {
+    if(curr == obj_nil()) return variance;
+
+    object *rest = interns("&REST"); // Refactor. Shouldn't be calling interns here.
+
+    object *param = ocar(curr);
+    if(param == rest) {
+        // We have a variadic function. Mark it and handle further args.
+        curr = ocdr(curr);
+        param = ocar(curr);
+        if(curr == obj_nil() || param == obj_nil()) {
+            printf("Must supply a symbol to bind for &REST.\n");
+            abort();
+        }
+        bs_push(cc, param);
+        bs_bind(cc);
+        curr = ocdr(curr);
+        if(curr != obj_nil()) {
+            printf("Expected end of list, but have: ");
+            print_object(curr);
+            printf("\n");
+        }
+        cc->flags |= CC_FLAG_HAS_REST;
+        return variance;
+    }
+
+    variance = fn_bind_params(cc, c, ocdr(curr), variance);
+    variance++;
+    bs_push(cc, param);
+    bs_bind(cc);
+
+    return variance;
+}
+
 void fn_call(compiled_chunk *cc, context *c, object *fn) {
     bs_push_context(cc);
 
     object *fargs = oval_fn_args(fn);
     object *fbody = oval_fn_body(fn);
 
-    for(object *curr_param = fargs;
-        curr_param != obj_nil();
-        curr_param = ocdr(curr_param)) {
-        object *param = ocar(curr_param);
-        bs_push(cc, param);
-        bs_bind(cc);
-    }
+    cc->variance = fn_bind_params(cc, c, fargs, 0);
+
     object *ret = obj_nil();
     bs_push(cc, ret);
     for(; fbody != obj_nil(); fbody = ocdr(fbody)) {
@@ -168,9 +198,7 @@ void fn_call(compiled_chunk *cc, context *c, object *fn) {
     bs_pop_context(cc);
 }
 
-compiled_chunk *compile_fn(context *c, object *fn) {
-
-    compiled_chunk *fn_cc = new_compiled_chunk();
+void compile_fn(compiled_chunk *fn_cc, context *c, object *fn) {
 
     if(fn == obj_nil() || fn == NULL) {
         printf("Cannot call function: ");
@@ -191,7 +219,6 @@ compiled_chunk *compile_fn(context *c, object *fn) {
         compile_bytecode(fn_cc, c, result);
     }
     bs_exit(fn_cc);
-    return fn_cc;
 }
 
 static void vm_let(compiled_chunk *cc, context *c, object *o) {
@@ -229,11 +256,11 @@ static void vm_fn(compiled_chunk *cc, context *c, object *o) {
         abort();
     }
 
-    object *fn = new_object_fn_compiled(NULL);
+    compiled_chunk *fn_cc = new_compiled_chunk();
+    object *fn = new_object_fn_compiled(fn_cc);
     bind_fn(c, fname, fn);
-        
-    compiled_chunk *fn_cc = compile_fn(c, new_object_fn(fargs, body));
-    oset_fn_compiled(fn, fn_cc);
+    //printf("Compiling fn %s into cc: %p\n", string_ptr(oval_symbol(fname)), fn_cc);
+    compile_fn(fn_cc, c, new_object_fn(fargs, body));
 }
 
 void vm_if(compiled_chunk *cc, context *c, object *o) {
@@ -257,7 +284,6 @@ void vm_if(compiled_chunk *cc, context *c, object *o) {
 
 void vm_defmacro(compiled_chunk *cc, context *c, object *o) {
     (void)cc;
-    printf("Execing defmacro.\n");
     object *fname = ocar(ocdr(o));
     object *fargs = ocar(ocdr(ocdr(o)));
     object *body = ocdr(ocdr(ocdr(o)));
@@ -274,7 +300,8 @@ void vm_defmacro(compiled_chunk *cc, context *c, object *o) {
         abort();
     }
 
-    compiled_chunk *macro_cc = compile_fn(c, new_object_fn(fargs, body));
+    compiled_chunk *macro_cc = new_compiled_chunk();
+    compile_fn(macro_cc, c, new_object_fn(fargs, body));
     bind_fn(c, fname, new_object_macro_compiled(macro_cc));
 }
 
@@ -282,9 +309,6 @@ void vm_backtick(compiled_chunk *cc, context *c, object *o) {
     switch(otype(o)) {
     case O_CONS:
         if(ocar(o) == vm_s_comma) {
-            printf("Got comma. Evaluating: ");
-            print_object(ocar(ocdr(o)));
-            printf("\n");
             compile_bytecode(cc, c, ocar(ocdr(o)));
         }
         else {
@@ -336,7 +360,6 @@ static void compile_cons(compiled_chunk *cc, context *c, object *o) {
         vm_if(cc, c, o);
     }
     else if(func == vm_s_defmacro) {
-        printf("Calling defmacro.\n");
         vm_defmacro(cc, c, o);
     }
     else if(func == vm_s_backtick) {
@@ -350,19 +373,46 @@ static void compile_cons(compiled_chunk *cc, context *c, object *o) {
 //        vm_for(cc, c, o);
 //    }
     else {
-
-        int num_args = 0;
-        for(object *curr = ocdr(o); curr != obj_nil(); curr = ocdr(curr)) {
-            num_args++;
-            compile_bytecode(cc, c, ocar(curr));
-        }
         object *fn = lookup_fn(c, func);
         if(!fn) {
             printf("No such function: %s\n", string_ptr(oval_symbol(func)));
             abort();
         }
-        bs_push(cc, fn);
-        bs_call(cc, num_args);
+
+        if(otype(fn) == O_FN_COMPILED) {
+            compiled_chunk *fn_cc = oval_fn_compiled(fn);
+
+            long num_args = 0;
+            object *curr;
+            for(curr = ocdr(o); curr != obj_nil(); curr = ocdr(curr)) {
+                num_args++;
+                compile_bytecode(cc, c, ocar(curr));
+            }
+
+            if(num_args > fn_cc->variance) {
+                if(fn_cc->flags & CC_FLAG_HAS_REST) {
+                    bs_push(cc, lookup_fn(c, interns("LIST")));
+                    bs_call(cc, num_args - fn_cc->variance);
+                }
+                else {
+                    printf("Expected exactly %ld arguments, but got %ld.\n", fn_cc->variance, num_args);
+                    abort();
+                }
+            }
+
+            bs_push(cc, fn);
+            bs_call(cc, num_args);
+        }
+        else {
+            int num_args = 0;
+            for(object *curr = ocdr(o); curr != obj_nil(); curr = ocdr(curr)) {
+                num_args++;
+                compile_bytecode(cc, c, ocar(curr));
+            }
+
+            bs_push(cc, fn);
+            bs_call(cc, num_args);
+        }
     }
 }
 
@@ -405,9 +455,9 @@ object *expand_macros_rec(compiled_chunk *cc, context *c, object *o, size_t rec)
         object *func = lookup_fn(c, fsym);
         if(func && otype(func) == O_MACRO_COMPILED) {
             // Don't eval the arguments.
-            printf("Expanding: ");
-            print_object(o);
-            printf("\n");
+//            printf("Expanding: ");
+//            print_object(o);
+//            printf("\n");
             int num_args = 0;
             for(object *margs = ocdr(o); margs != obj_nil(); margs = ocdr(margs)) {
                 push(ocar(margs));
@@ -416,9 +466,9 @@ object *expand_macros_rec(compiled_chunk *cc, context *c, object *o, size_t rec)
 
             run_vm(c, oval_fn_compiled(func));
             object *exp = pop();
-            printf("Expanded: ");
-            print_object(exp);
-            printf("\n");
+//            printf("Expanded: ");
+//            print_object(exp);
+//            printf("\n");
             exp = expand_macros_rec(cc, c, exp, rec);
             return exp;
         }
