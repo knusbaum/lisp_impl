@@ -89,59 +89,59 @@ void free_compiled_chunk(compiled_chunk *c) {
 }
 
 void bs_push(compiled_chunk *cc, object *o) {
-    printf("%ld@%p bs_push: ", cc->b_off, cc);
-    print_object(o);
-    printf("\n");
+    //printf("%ld@%p bs_push: ", cc->b_off, cc);
+    //print_object(o);
+    //printf("\n");
     add_binstr_arg(cc, map_get(addrs, "push"), o);
 }
 
 void bs_pop(compiled_chunk *cc) {
-    printf("%ld@%p bs_pop\n", cc->b_off, cc);
+    //printf("%ld@%p bs_pop\n", cc->b_off, cc);
     add_binstr_arg(cc, map_get(addrs, "pop"), NULL);
 }
 
 void bs_push_context(compiled_chunk *cc) {
-    printf("%ld@%p bs_push_context\n", cc->b_off, cc);
+    //printf("%ld@%p bs_push_context\n", cc->b_off, cc);
     add_binstr_arg(cc, map_get(addrs, "push_lex_context"), NULL);
 }
 
 void bs_pop_context(compiled_chunk *cc) {
-    printf("%ld@%p bs_pop_context\n", cc->b_off, cc);
+    //printf("%ld@%p bs_pop_context\n", cc->b_off, cc);
     add_binstr_arg(cc, map_get(addrs, "pop_lex_context"), NULL);
 }
 
 void bs_bind(compiled_chunk *cc) {
-    printf("%ld@%p bs_bind\n", cc->b_off, cc);
+    //printf("%ld@%p bs_bind\n", cc->b_off, cc);
     add_binstr_arg(cc, map_get(addrs, "bind"), NULL);
 }
 
 void bs_resolve(compiled_chunk *cc) {
-    printf("%ld@%p bs_resolve_context\n", cc->b_off, cc);
+    //printf("%ld@%p bs_resolve_context\n", cc->b_off, cc);
     add_binstr_arg(cc, map_get(addrs, "resolve_sym"), NULL);
 }
 
 void bs_call(compiled_chunk *cc, long variance) {
-    printf("%ld@%p bs_call (%ld)\n", cc->b_off, cc, variance);
+    //printf("%ld@%p bs_call (%ld)\n", cc->b_off, cc, variance);
     add_binstr_variance(cc, map_get(addrs, "call"), variance);
 }
 
 void bs_exit(compiled_chunk *cc) {
-    printf("%ld@%p bs_exit\n", cc->b_off, cc);
+    //printf("%ld@%p bs_exit\n", cc->b_off, cc);
     add_binstr_arg(cc, map_get(addrs, "exit"), NULL);
 }
 
 void bs_label(compiled_chunk *cc, char *label) {
-    printf("%ld@%p bs_label: %s\n", cc->b_off, cc, label);
+    //printf("%ld@%p bs_label: %s\n", cc->b_off, cc, label);
     map_put(cc->labels, label, (void *)cc->b_off);
 }
 
 void bs_go(compiled_chunk *cc, char *label) {
-    printf("%ld@%p bs_go: %s\n", cc->b_off, cc, label);
+    //printf("%ld@%p bs_go: %s\n", cc->b_off, cc, label);
     add_binstr_str(cc, map_get(addrs, "go"), label);
 }
 
 void bs_go_if_nil(compiled_chunk *cc, char *label) {
-    printf("%ld@%p bs_go_if_nil: %s\n", cc->b_off, cc, label);
+    //printf("%ld@%p bs_go_if_nil: %s\n", cc->b_off, cc, label);
     add_binstr_str(cc, map_get(addrs, "go_if_nil"), label);
 }
 
