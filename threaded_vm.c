@@ -7,6 +7,10 @@
 
 /** CRAP TO MOVE **/
 
+int str_eq(void *s1, void *s2) {
+    return strcmp((char *)s1, (char *)s2) == 0;
+}
+
 map_t *addrs; // This shouldn't be global.
 
 struct binstr {
@@ -14,6 +18,7 @@ struct binstr {
     union {
         object *arg;
         long variance;
+        char *str;
     };
 };
 
@@ -21,6 +26,7 @@ struct compiled_chunk {
     struct binstr *bs;
     size_t b_off;
     size_t bsize;
+    map_t *labels;
 };
 
 compiled_chunk *new_compiled_chunk() {
@@ -28,6 +34,7 @@ compiled_chunk *new_compiled_chunk() {
     chunk->bs = malloc(sizeof (struct binstr) * 24);
     chunk->b_off = 0;
     chunk->bsize = 24;
+    chunk->labels = map_create(str_eq);
     return chunk;
 }
 
@@ -55,9 +62,25 @@ void add_binstr_variance(compiled_chunk *c, void *instr, long variance) {
     c->b_off++;
 }
 
+void add_binstr_str(compiled_chunk *c, void *instr, char *str) {
+    if(c->b_off == c->bsize) {
+        c->bsize *= 2;
+        c->bs = realloc(c->bs, sizeof (struct binstr) * c->bsize);
+    }
+
+    struct binstr *target = c->bs + c->b_off;
+    target->instr = instr;
+    target->str=str;
+    c->b_off++;
+}
+
+void free_compiled_chunk(compiled_chunk *c) {
+    free(c->bs);
+    map_destroy(c->labels);
+    free(c);
+}
+
 void bs_push(compiled_chunk *cc, object *o) {
-    (void)cc;
-    (void)o;
     printf("bs_push: ");
     print_object(o);
     printf("\n");
@@ -67,43 +90,59 @@ void bs_push(compiled_chunk *cc, object *o) {
 void bs_pop(compiled_chunk *cc) {
     printf("bs_pop\n");
     add_binstr_arg(cc, map_get(addrs, "pop"), NULL);
-    (void)cc;
 }
 
 void bs_push_context(compiled_chunk *cc) {
     printf("bs_push_context\n");
     add_binstr_arg(cc, map_get(addrs, "push_lex_context"), NULL);
-    (void)cc;
 }
 
 void bs_pop_context(compiled_chunk *cc) {
     printf("bs_pop_context\n");
     add_binstr_arg(cc, map_get(addrs, "pop_lex_context"), NULL);
-    (void)cc;
 }
 
 void bs_bind(compiled_chunk *cc) {
     printf("bs_bind\n");
     add_binstr_arg(cc, map_get(addrs, "bind"), NULL);
-    (void)cc;
 }
 
 void bs_resolve(compiled_chunk *cc) {
     printf("bs_resolve_context\n");
     add_binstr_arg(cc, map_get(addrs, "resolve_sym"), NULL);
-    (void)cc;
 }
 
 void bs_call(compiled_chunk *cc, long variance) {
     printf("bs_call (%ld)\n", variance);
     add_binstr_variance(cc, map_get(addrs, "call"), variance);
-    (void)cc;
 }
 
 void bs_exit(compiled_chunk *cc) {
     printf("bs_exit\n");
     add_binstr_arg(cc, map_get(addrs, "exit"), NULL);
-    (void)cc;
+}
+
+void bs_label(compiled_chunk *cc, char *label) {
+    printf("bs_label: %s\n", label);
+    map_put(cc->labels, label, (void *)cc->b_off);
+}
+
+void bs_go(compiled_chunk *cc, char *label) {
+    printf("bs_go: %s\n", label);
+    add_binstr_str(cc, map_get(addrs, "go"), label);
+}
+
+void bs_go_if_nil(compiled_chunk *cc, char *label) {
+    printf("bs_go_if_nil: %s\n", label);
+    add_binstr_str(cc, map_get(addrs, "go_if_nil"), label);
+}
+
+unsigned int i;
+
+char *mk_label() {
+    char *label = malloc(12); // 10 digits + L + \0
+    sprintf(label, "L%010u", i++);
+    return label;
 }
 
 map_t *get_vm_addrs();
@@ -175,6 +214,10 @@ void push(object *o) {
         stack_size *= 2;
         stack = realloc(stack, stack_size * sizeof (object *));
     }
+    if(s_off == 4096) {
+        printf("Blew the stack.\n");
+        abort();
+    }
     stack[s_off++] = o;
 }
 
@@ -195,12 +238,12 @@ void vm_plus(context *c, long variance) {
     long val = 0;
     for(int i = 0; i < variance; i++) {
         object * v = pop();
-        printf("popped: ");
-        print_object(v);
-        printf("\n");
+//        printf("popped: ");
+//        print_object(v);
+//        printf("\n");
         val += oval_long(v);
     }
-    printf("push: %ld\n", val); ///
+//    printf("push: %ld\n", val); ///
     push(new_object_long(val));
 }
 
@@ -216,7 +259,7 @@ void vm_minus(context *c, long variance) {
         val += oval_long(pop());
     }
     val = oval_long(pop()) - val;
-    printf("push: %ld\n", val); ///
+    //printf("push: %ld\n", val); ///
     push(new_object_long(val));
 }
 
@@ -252,11 +295,11 @@ void vm_num_eq(context *c, long variance) {
         abort();
     }
     if(oval_long(pop()) == oval_long(pop())) {
-        printf("push T\n"); ///
+        //printf("push T\n"); ///
         push(obj_t());
     }
     else {
-        printf("push NIL\n"); ///
+        //printf("push NIL\n"); ///
         push(obj_nil());
     }
 }
@@ -391,25 +434,28 @@ void call(context *c, long variance) {
         abort();
     }
     if(otype(fn) == O_FN_NATIVE) {
-        printf("Calling native function!\n");
+        //printf("Calling native function!\n");
         oval_native(fn)(c, variance);
     }
     else if (otype(fn) == O_FN_COMPILED) {
-        printf("Calling user function.\n");
+        //printf("Calling user function.\n");
         compiled_chunk *cc = oval_fn_compiled(fn);
         run_vm(c, cc);
     }
+    else if(otype(fn) == O_MACRO) {
+        //fn_call(cc, c, fn);
+        compiled_chunk *cc = oval_macro_compiled(fn);
+        object *result = pop();
+        compile_bytecode(cc, c, result);
+    }
     else {
-        printf("Cannot eval user-defined fns or macros. not implemented.\n");
+        printf("Cannot eval this thing. not implemented: ");
+        print_object(fn);
+        printf("\n");
         abort();
     }
 //    else if(otype(fn) == O_FN) {
 //        fn_call(cc, c, fn);
-//    }
-//    else if(otype(fn) == O_MACRO) {
-//        fn_call(cc, c, fn);
-//        object *result = pop();
-//        compile_bytecode(cc, c, result);
 //    }
 }
 
@@ -513,17 +559,25 @@ void vm_if(compiled_chunk *cc, context *c, object *o) {
     object *true_branch = ocdr(cond);
     object *false_branch = ocar(ocdr(true_branch));
 
+    char *true_branch_lab = mk_label();
+    char *false_branch_lab = mk_label();
+    char *end_branch_lab = mk_label();
+    
     compile_bytecode(cc, c, ocar(cond));
-    printf("pop: "); ///
-    object *cval = pop();
-    print_object(cval); ///
-        printf("\n"); ///
-    if(cval != obj_nil()) {
-        compile_bytecode(cc, c, ocar(true_branch));
-    }
-    else {
-        compile_bytecode(cc, c, false_branch);
-    }
+    //object *cval = pop();
+    bs_go_if_nil(cc, false_branch_lab);
+    
+    bs_label(cc, true_branch_lab);
+    compile_bytecode(cc, c, ocar(true_branch));
+    bs_go(cc, end_branch_lab);
+
+    bs_label(cc, false_branch_lab);
+    compile_bytecode(cc, c, false_branch);
+    bs_label(cc, end_branch_lab);
+
+    free(true_branch_lab);
+    free(false_branch_lab);
+    free(end_branch_lab);
 }
 
 void vm_defmacro(compiled_chunk *cc, context *c, object *o) {
@@ -545,7 +599,8 @@ void vm_defmacro(compiled_chunk *cc, context *c, object *o) {
         abort();
     }
 
-    bind_fn(c, fname, new_object_macro(fargs, body));
+    compiled_chunk *macro_cc = compile_fn(c, new_object_fn(fargs, body));
+    bind_fn(c, fname, new_object_macro_compiled(macro_cc));
 }
 
 void vm_backtick(compiled_chunk *cc, context *c, object *o) {
@@ -610,20 +665,20 @@ static void compile_cons(compiled_chunk *cc, context *c, object *o) {
     else if (func == vm_s_fn) {
         vm_fn(cc, c, o);
     }
-//    else if(func == vm_s_if) {
-//        vm_if(cc, c, o);
-//    }
-//    else if(func == vm_s_defmacro) {
-//        printf("Calling defmacro.\n"); ///
-//        vm_defmacro(cc, c, o);
-//    }
-//    else if(func == vm_s_backtick) {
-//        vm_backtick(cc, c, ocar(ocdr(o)));
-//    }
-//    else if(func == vm_s_comma) {
-//        printf("Error: Comma outside of a backtick.\n");
-//        abort();
-//    }
+    else if(func == vm_s_if) {
+        vm_if(cc, c, o);
+    }
+    else if(func == vm_s_defmacro) {
+        printf("Calling defmacro.\n"); ///
+        vm_defmacro(cc, c, o);
+    }
+    else if(func == vm_s_backtick) {
+        vm_backtick(cc, c, ocar(ocdr(o)));
+    }
+    else if(func == vm_s_comma) {
+        printf("Error: Comma outside of a backtick.\n");
+        abort();
+    }
 //    else if(func == vm_s_for) {
 //        vm_for(cc, c, o);
 //    }
@@ -675,12 +730,18 @@ void compile_bytecode(compiled_chunk *cc, context *c, object *o) {
     }
 }
 
-object *expand_macros(compiled_chunk *cc, context *c, object *o) {
 
+object *expand_macros_rec(compiled_chunk *cc, context *c, object *o, size_t rec) {
+    if(rec >= 4096) {
+        printf("Cannot expand macro. Nesting too deep.\n");
+        abort();
+    }
+    rec++;
+    (void)cc;
     if(otype(o) == O_CONS) {
         object *fsym = ocar(o);
         object *func = lookup_fn(c, fsym);
-        if(func && otype(func) == O_MACRO) {
+        if(func && otype(func) == O_MACRO_COMPILED) {
             // Don't eval the arguments.
             printf("Expanding: "); ///
             print_object(o); ///
@@ -690,31 +751,36 @@ object *expand_macros(compiled_chunk *cc, context *c, object *o) {
 //                printf("push macro arg: "); ///
 //                print_object(ocar(margs)); ///
 //                printf("\n"); ///
-                bs_push(cc, ocar(margs));
+                push(ocar(margs));
                 num_args++;
             }
             //printf("push macro %s\n", string_ptr(oval_symbol(fsym))); ///
-            bs_push(cc, fsym);
+            //push(fsym);
             //printf("call (%d)\n", num_args); ///
-            bs_call(cc, num_args);
             //call(c, num_args);
+            //call(c, num_args);
+            run_vm(c, oval_fn_compiled(func));
             object *exp = pop();
             printf("Expanded: "); ///
             print_object(exp); ///
             printf("\n"); ///
-            //exp = expand_macros(c, exp);
+            exp = expand_macros_rec(cc, c, exp, rec);
             return exp;
         }
         else {
-//            for(object *margs = o; margs != obj_nil(); margs = ocdr(margs)) {
-//                osetcar(margs, expand_macros(c, ocar(margs)));
-//            }
+            for(object *margs = o; margs != obj_nil(); margs = ocdr(margs)) {
+                osetcar(margs, expand_macros_rec(cc, c, ocar(margs), rec));
+            }
             return o;
         }
     }
     else {
         return o;
     }
+}
+
+object *expand_macros(compiled_chunk *cc, context *c, object *o) {
+    return expand_macros_rec(cc, c, o, 0);
 }
 
 object *vm_eval(context *c, object *o) {
@@ -753,10 +819,6 @@ object *vm_eval(context *c, object *o) {
         goto *bs->instr;                        \
     };
 
-int str_eq(void *s1, void *s2) {
-    return strcmp((char *)s1, (char *)s2) == 0;
-}
-
 void *___vm(context *c, compiled_chunk *cc, int _get_vm_addrs) {
 //void run_module(char *filename) {
     (void)c;
@@ -769,6 +831,8 @@ void *___vm(context *c, compiled_chunk *cc, int _get_vm_addrs) {
         map_put(m, "bind", &&bind);
         map_put(m, "push_lex_context", &&push_lex_context);
         map_put(m, "pop_lex_context", &&pop_lex_context);
+        map_put(m, "go", &&go);
+        map_put(m, "go_if_nil", &&go_if_nil);
         map_put(m, "exit", &&exit);
         return m;
     }
@@ -780,6 +844,8 @@ void *___vm(context *c, compiled_chunk *cc, int _get_vm_addrs) {
 //    printf("bind: (%p)\n", &&bind);
 //    printf("push_lex_context: (%p)\n", &&push_lex_context);
 //    printf("pop_lex_context: (%p)\n", &&pop_lex_context);
+//    printf("go: (%p)\n", &&go);
+//    printf("go_if_nil: (%p)\n", &&go_if_nil);
 //    printf("exit: (%p)\n", &&exit);
     
     //struct module *module = parse_module(filename, m);
@@ -792,45 +858,61 @@ void *___vm(context *c, compiled_chunk *cc, int _get_vm_addrs) {
 
     //char *label;
     //void *target;
-
+    size_t target;
+    
 push:
 //    info("Executing [MOVRR] on %p %p\n", bs->a1, bs->a2);
 //    push(bs->arg);
-    printf("PUSH: ");
-    print_object(bs->arg);
-    printf("\n");
+//    printf("PUSH: ");
+//    print_object(bs->arg);
+//    printf("\n");
     push(bs->arg);
     NEXTI;
 pop:
-    printf("POP\n");
+//    printf("POP\n");
 //    info("Executing [MOVRC] on %p %lu\n", bs->a1, (uintptr_t)bs->a2);
     pop();
     NEXTI;
 call:
-    printf("CALL (%ld)\n", bs->variance);
+//    printf("CALL (%ld)\n", bs->variance);
 //    info("Executing  [INCR] on %p\n", bs->a1);
     call(c, bs->variance);
     NEXTI;
 resolve_sym:
-    printf("RESOLVE_SYM\n");
+//    printf("RESOLVE_SYM\n");
     resolve(c);
     NEXTI;
 bind:
-    printf("BIND\n");
+//    printf("BIND\n");
     bind(c);
     NEXTI;
 push_lex_context:
-    printf("PUSH_LEX_CONTEXT\n");
+//    printf("PUSH_LEX_CONTEXT\n");
     c = push_context(c);
     NEXTI;
 pop_lex_context:
-    printf("POP_LEX_CONTEXT\n");
+//    printf("POP_LEX_CONTEXT\n");
     c = pop_context(c);
     NEXTI;
-
+go:
+    target = (size_t)map_get(cc->labels, bs->str);
+    //printf("GO (%ld)\n", target);
+    bs = cc->bs + target;
+    goto *bs->instr;
+go_if_nil:
+    //target = (size_t)map_get(cc->labels, bs->str);
+    //printf("GO_IF_NIL (%ld) ", target);
+    if(pop() == obj_nil()) {
+        //printf("(jumping to %p)\n", (cc->bs + target)->instr);
+        target = (size_t)map_get(cc->labels, bs->str);
+        bs = cc->bs + target;
+        goto *bs->instr;
+    }
+    //printf("(not jumping)\n");
+    NEXTI;
 
 exit:
-    printf("EXIT\n");
+    //printf("EXIT\n");
     //info("CVM got EXIT @ %p\n", bs);
     //destroy_module(module);
     //map_destroy(m);

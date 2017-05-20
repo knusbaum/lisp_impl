@@ -67,6 +67,9 @@ object *new_object(enum obj_type t, void *o) {
     case O_FN_COMPILED:
         ob->cc = o;
         break;
+    case O_MACRO_COMPILED:
+        ob->cc = o;
+        break;
     }
     return ob;
 }
@@ -101,6 +104,10 @@ object *new_object_macro(object *args, object *body) {
     setcar(cell, args);
     setcdr(cell, body);
     return new_object(O_MACRO, cell);
+}
+
+object *new_object_macro_compiled(compiled_chunk *cc) {
+    return new_object(O_MACRO_COMPILED, cc);
 }
 
 object *new_object_list(size_t len, ...) {
@@ -189,6 +196,10 @@ compiled_chunk *oval_fn_compiled(object *o) {
     return o->cc;
 }
 
+compiled_chunk *oval_macro_compiled(object *o) {
+    return o->cc;
+}
+
 object *ocar(object *o) {
     if(o == obj_nil()) {
         return obj_nil();
@@ -263,6 +274,9 @@ static void print_cdr(object *o) {
     case O_FN_COMPILED:
         printf(" . #<COMPILED FUNCTION @ %p>", o);
         break;
+    case O_MACRO_COMPILED:
+        printf(" . #<COMPILED MACRO @ %p>", o);
+        break;
     }
 }
 
@@ -310,6 +324,9 @@ void print_object(object *o) {
         break;
     case O_FN_COMPILED:
         printf("#<COMPILED FUNCTION @ %p>", o);
+        break;
+    case O_MACRO_COMPILED:
+        printf("#<COMPILED MACRO @ %p>", o);
         break;
     }
 }
