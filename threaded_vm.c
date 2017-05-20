@@ -238,12 +238,8 @@ void vm_plus(context *c, long variance) {
     long val = 0;
     for(int i = 0; i < variance; i++) {
         object * v = pop();
-//        printf("popped: ");
-//        print_object(v);
-//        printf("\n");
         val += oval_long(v);
     }
-//    printf("push: %ld\n", val); ///
     push(new_object_long(val));
 }
 
@@ -259,7 +255,6 @@ void vm_minus(context *c, long variance) {
         val += oval_long(pop());
     }
     val = oval_long(pop()) - val;
-    //printf("push: %ld\n", val); ///
     push(new_object_long(val));
 }
 
@@ -269,7 +264,6 @@ void vm_mult(context *c, long variance) {
     for(int i = 0; i < variance; i++) {
         val *= oval_long(pop());
     }
-    printf("push: %ld\n", val); ///
     push(new_object_long(val));
 }
 
@@ -284,7 +278,6 @@ void vm_div(context *c, long variance) {
         val *= oval_long(pop());
     }
     val = oval_long(pop()) / val;
-    printf("push value: %ld\n", val); ///
     push(new_object_long(val));
 }
 
@@ -295,11 +288,9 @@ void vm_num_eq(context *c, long variance) {
         abort();
     }
     if(oval_long(pop()) == oval_long(pop())) {
-        //printf("push T\n"); ///
         push(obj_t());
     }
     else {
-        //printf("push NIL\n"); ///
         push(obj_nil());
     }
 }
@@ -310,9 +301,6 @@ void vm_list(context *c, long variance) {
     for(int i = 0; i < variance; i++) {
         cons = new_object_cons(pop(), cons);
     }
-    printf("Push object: "); ///
-    print_object(cons); ///
-    printf("\n"); ///
     push(cons);
 }
 
@@ -323,9 +311,6 @@ void vm_car(context *c, long variance) {
         abort();
     }
     object *list = pop();
-    printf("Push object: "); ///
-    print_object(ocar(list)); ///
-    printf("\n"); ///
     push(ocar(list));
 }
 
@@ -336,9 +321,6 @@ void vm_cdr(context *c, long variance) {
         abort();
     }
     object *list = pop();
-    printf("Push object: "); ///
-    print_object(ocdr(list)); ///
-    printf("\n"); ///
     push(ocdr(list));
 }
 
@@ -351,9 +333,6 @@ void vm_cons(context *c, long variance) {
     object *cdr = pop();
     object *car = pop();
     object *cons = new_object_cons(car, cdr);
-    printf("Push object: "); ///
-    print_object(cons); ///
-    printf("\n"); ///
     push(cons);
 }
 //void fn_call(compiled_chunk *cc, context *c, object *fn);
@@ -383,11 +362,8 @@ void vm_cons(context *c, long variance) {
 void bind(context *c);
 
 void fn_call(compiled_chunk *cc, context *c, object *fn) {
-    {
-        //printf("push_lex_context\n"); ///
-        bs_push_context(cc);
-        //c = push_context(c);
-    }
+    bs_push_context(cc);
+
     object *fargs = oval_fn_args(fn);
     object *fbody = oval_fn_body(fn);
 
@@ -395,32 +371,17 @@ void fn_call(compiled_chunk *cc, context *c, object *fn) {
         curr_param != obj_nil();
         curr_param = ocdr(curr_param)) {
         object *param = ocar(curr_param);
-        //printf("push symbol %s\n", string_ptr(oval_symbol(param))); ///
         bs_push(cc, param);
-        //printf("bind\n"); ///
         bs_bind(cc);
     }
     object *ret = obj_nil();
-    //printf("push symbol %s\n", string_ptr(oval_symbol(ret))); ///
     bs_push(cc, ret);
     for(; fbody != obj_nil(); fbody = ocdr(fbody)) {
-        //printf("pop\n"); ///
-        //object *opop =
         bs_pop(cc);
-//        (void)opop;
-//        print_object(opop); ///
-//        printf("\n"); ///
         object *form = ocar(fbody);
         compile_bytecode(cc, c, form);
     }
-//    printf("push value: "); ///
-//        print_object(ret); ///
-//        printf("\n"); ///
-    {
-        //printf("pop_lex_context\n"); ///
-        bs_pop_context(cc);
-        //c = pop_context(c);
-    }
+    bs_pop_context(cc);
 }
 
 void call(context *c, long variance) {
@@ -428,22 +389,19 @@ void call(context *c, long variance) {
 
     object *fn = lookup_fn(c, fsym);
     if(fn == obj_nil() || fn == NULL) {
-        printf("Cannot call function: "); ///
-        print_object(fsym); ///
-        printf("\n"); ///
+        printf("Cannot call function: ");
+        print_object(fsym);
+        printf("\n");
         abort();
     }
     if(otype(fn) == O_FN_NATIVE) {
-        //printf("Calling native function!\n");
         oval_native(fn)(c, variance);
     }
     else if (otype(fn) == O_FN_COMPILED) {
-        //printf("Calling user function.\n");
         compiled_chunk *cc = oval_fn_compiled(fn);
         run_vm(c, cc);
     }
     else if(otype(fn) == O_MACRO) {
-        //fn_call(cc, c, fn);
         compiled_chunk *cc = oval_macro_compiled(fn);
         object *result = pop();
         compile_bytecode(cc, c, result);
@@ -454,19 +412,16 @@ void call(context *c, long variance) {
         printf("\n");
         abort();
     }
-//    else if(otype(fn) == O_FN) {
-//        fn_call(cc, c, fn);
-//    }
 }
 
 compiled_chunk *compile_fn(context *c, object *fn) {
-    
+
     compiled_chunk *fn_cc = new_compiled_chunk();
-    
+
     if(fn == obj_nil() || fn == NULL) {
-        printf("Cannot call function: "); ///
-        print_object(fn); ///
-        printf("\n"); ///
+        printf("Cannot call function: ");
+        print_object(fn);
+        printf("\n");
         abort();
     }
     if(otype(fn) == O_FN_NATIVE) {
@@ -506,29 +461,20 @@ void resolve(context *c) {
 /** VM **/
 
 static void vm_let(compiled_chunk *cc, context *c, object *o) {
-    {
-        //printf("push_lex_context\n"); ///
-        //c = push_context(c);
-        bs_push_context(cc);
-    }
+    bs_push_context(cc);
+
     object *letlist = ocar(ocdr(o));
     for(object *frm = letlist; frm != obj_nil(); frm = ocdr(frm)) {
         object *assign = ocar(frm);
         object *sym = ocar(assign);
         compile_bytecode(cc, c, ocar(ocdr(assign)));
-        //printf("push symbol %s\n", string_ptr(oval_symbol(sym))); ///
         bs_push(cc, sym);
-        //printf("bind\n"); ///
         bs_bind(cc);
     }
     for(object *body = ocdr(ocdr(o)); body != obj_nil(); body = ocdr(body)) {
         compile_bytecode(cc, c, ocar(body));
     }
-    {
-        //printf("pop_lex_context\n"); ///
-        //c = pop_context(c);
-        bs_pop_context(cc);
-    }
+    bs_pop_context(cc);
 }
 
 static void vm_fn(compiled_chunk *cc, context *c, object *o) {
@@ -549,7 +495,6 @@ static void vm_fn(compiled_chunk *cc, context *c, object *o) {
         abort();
     }
 
-    //bind_fn(c, fname, new_object_fn(fargs, body));
     compiled_chunk *fn_cc = compile_fn(c, new_object_fn(fargs, body));
     bind_fn(c, fname, new_object_fn_compiled(fn_cc));
 }
@@ -562,11 +507,10 @@ void vm_if(compiled_chunk *cc, context *c, object *o) {
     char *true_branch_lab = mk_label();
     char *false_branch_lab = mk_label();
     char *end_branch_lab = mk_label();
-    
+
     compile_bytecode(cc, c, ocar(cond));
-    //object *cval = pop();
     bs_go_if_nil(cc, false_branch_lab);
-    
+
     bs_label(cc, true_branch_lab);
     compile_bytecode(cc, c, ocar(true_branch));
     bs_go(cc, end_branch_lab);
@@ -582,7 +526,7 @@ void vm_if(compiled_chunk *cc, context *c, object *o) {
 
 void vm_defmacro(compiled_chunk *cc, context *c, object *o) {
     (void)cc;
-    printf("Execing defmacro.\n"); ///
+    printf("Execing defmacro.\n");
     object *fname = ocar(ocdr(o));
     object *fargs = ocar(ocdr(ocdr(o)));
     object *body = ocdr(ocdr(ocdr(o)));
@@ -607,9 +551,9 @@ void vm_backtick(compiled_chunk *cc, context *c, object *o) {
     switch(otype(o)) {
     case O_CONS:
         if(ocar(o) == vm_s_comma) {
-            printf("Got comma. Evaluating: "); ///
-            print_object(ocar(ocdr(o))); ///
-            printf("\n"); ///
+            printf("Got comma. Evaluating: ");
+            print_object(ocar(ocdr(o)));
+            printf("\n");
             compile_bytecode(cc, c, ocar(ocdr(o)));
         }
         else {
@@ -618,17 +562,11 @@ void vm_backtick(compiled_chunk *cc, context *c, object *o) {
                 vm_backtick(cc, c, ocar(each));
                 num_args++;
             }
-            //printf("Push function LIST\n"); ///
             bs_push(cc, interns("LIST"));
-            //printf("call (%d)\n", num_args); ///
             bs_call(cc, num_args);
-            //call(c, num_args);
         }
         break;
     default:
-//        printf("push: "); ///
-//        print_object(o); ///
-//        printf("\n"); ///
         bs_push(cc, o);
     }
 }
@@ -654,9 +592,6 @@ static void compile_cons(compiled_chunk *cc, context *c, object *o) {
     object *func = ocar(o);
 
     if(func == vm_s_quote) {
-//        printf("push: "); ///
-//        print_object(ocar(ocdr(o))); ///
-//        printf("\n"); ///
         bs_push(cc, ocar(ocdr(o)));
     }
     else if(func == vm_s_let) {
@@ -669,7 +604,7 @@ static void compile_cons(compiled_chunk *cc, context *c, object *o) {
         vm_if(cc, c, o);
     }
     else if(func == vm_s_defmacro) {
-        printf("Calling defmacro.\n"); ///
+        printf("Calling defmacro.\n");
         vm_defmacro(cc, c, o);
     }
     else if(func == vm_s_backtick) {
@@ -683,19 +618,14 @@ static void compile_cons(compiled_chunk *cc, context *c, object *o) {
 //        vm_for(cc, c, o);
 //    }
     else {
-        //printf("Cannot currently execute.\n");
-        //return;
-        
+
         int num_args = 0;
         for(object *curr = ocdr(o); curr != obj_nil(); curr = ocdr(curr)) {
             num_args++;
             compile_bytecode(cc, c, ocar(curr));
         }
-        //printf("push function %s\n", string_ptr(oval_symbol(func))); ///
         bs_push(cc, func);
-        //printf("call (%d)\n", num_args); ///
         bs_call(cc, num_args);
-        //call(c, num_args);
     }
 }
 
@@ -705,21 +635,16 @@ void compile_bytecode(compiled_chunk *cc, context *c, object *o) {
         compile_cons(cc, c, o);
         break;
     case O_SYM:
-        //printf("push sym %s\n", string_ptr(oval_symbol(o))); ///
         bs_push(cc, o);
-        //printf("resolve_sym\n"); ///
         bs_resolve(cc);
         break;
     case O_STR:
-        //printf("push string literal %s\n", string_ptr(oval_string(o))); ///
         bs_push(cc, o);
         break;
     case O_NUM:
-        //printf("push num literal %ld\n", oval_long(o)); ///
         bs_push(cc, o);
         break;
     case O_KEYWORD:
-        //printf("push keyword %s\n", string_ptr(oval_keyword(o))); ///
         bs_push(cc, o);
         break;
     default:
@@ -743,27 +668,20 @@ object *expand_macros_rec(compiled_chunk *cc, context *c, object *o, size_t rec)
         object *func = lookup_fn(c, fsym);
         if(func && otype(func) == O_MACRO_COMPILED) {
             // Don't eval the arguments.
-            printf("Expanding: "); ///
-            print_object(o); ///
-            printf("\n"); ///
+            printf("Expanding: ");
+            print_object(o);
+            printf("\n");
             int num_args = 0;
             for(object *margs = ocdr(o); margs != obj_nil(); margs = ocdr(margs)) {
-//                printf("push macro arg: "); ///
-//                print_object(ocar(margs)); ///
-//                printf("\n"); ///
                 push(ocar(margs));
                 num_args++;
             }
-            //printf("push macro %s\n", string_ptr(oval_symbol(fsym))); ///
-            //push(fsym);
-            //printf("call (%d)\n", num_args); ///
-            //call(c, num_args);
-            //call(c, num_args);
+
             run_vm(c, oval_fn_compiled(func));
             object *exp = pop();
-            printf("Expanded: "); ///
-            print_object(exp); ///
-            printf("\n"); ///
+            printf("Expanded: ");
+            print_object(exp);
+            printf("\n");
             exp = expand_macros_rec(cc, c, exp, rec);
             return exp;
         }
@@ -786,7 +704,7 @@ object *expand_macros(compiled_chunk *cc, context *c, object *o) {
 object *vm_eval(context *c, object *o) {
 
     compiled_chunk *cc = new_compiled_chunk();
-    
+
     o = expand_macros(cc, c, o);
     printf("Expanded: ");
     print_object(o);
@@ -796,14 +714,11 @@ object *vm_eval(context *c, object *o) {
     compile_bytecode(cc, c, o);
     bs_exit(cc);
     printf("Stack length: %ld\n", s_off);
-    
-    printf("\n\n!!!!!!!!!!!!!!!!!!!!RUNNING VM!!!!!!!!!!!!!!!!!\n");
-    
+
     run_vm(c, cc);
-    printf("\n\n!!!!!!!!!!!!!!!!!!!!DONE!!!!!!!!!!!!!!!!!!!!!!!\n");
     printf("Stack length: %ld\n", s_off);
     return pop();
-        
+
     return obj_nil();
 }
 
@@ -813,15 +728,13 @@ object *vm_eval(context *c, object *o) {
 
 /** MOVE THE FUNCS BELOW TO A NEW FILE. **/
 
-//info("%p\n", bs);                         
+//info("%p\n", bs);
 #define NEXTI {                                 \
         bs++;                                   \
         goto *bs->instr;                        \
     };
 
 void *___vm(context *c, compiled_chunk *cc, int _get_vm_addrs) {
-//void run_module(char *filename) {
-    (void)c;
     if(_get_vm_addrs) {
         map_t *m = map_create(str_eq);
         map_put(m, "push", &&push);
@@ -847,22 +760,15 @@ void *___vm(context *c, compiled_chunk *cc, int _get_vm_addrs) {
 //    printf("go: (%p)\n", &&go);
 //    printf("go_if_nil: (%p)\n", &&go_if_nil);
 //    printf("exit: (%p)\n", &&exit);
-    
-    //struct module *module = parse_module(filename, m);
-    struct binstr *bs = cc->bs; // = module->binstrs;
 
-    //info("Successfully loaded module %s. Running...\n", module->modname);
+    struct binstr *bs = cc->bs;
 
     goto *bs->instr;
     return NULL;
 
-    //char *label;
-    //void *target;
     size_t target;
-    
+
 push:
-//    info("Executing [MOVRR] on %p %p\n", bs->a1, bs->a2);
-//    push(bs->arg);
 //    printf("PUSH: ");
 //    print_object(bs->arg);
 //    printf("\n");
@@ -870,12 +776,10 @@ push:
     NEXTI;
 pop:
 //    printf("POP\n");
-//    info("Executing [MOVRC] on %p %lu\n", bs->a1, (uintptr_t)bs->a2);
     pop();
     NEXTI;
 call:
 //    printf("CALL (%ld)\n", bs->variance);
-//    info("Executing  [INCR] on %p\n", bs->a1);
     call(c, bs->variance);
     NEXTI;
 resolve_sym:
@@ -913,9 +817,6 @@ go_if_nil:
 
 exit:
     //printf("EXIT\n");
-    //info("CVM got EXIT @ %p\n", bs);
-    //destroy_module(module);
-    //map_destroy(m);
     return NULL;
 }
 

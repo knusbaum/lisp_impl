@@ -3,9 +3,9 @@
 
 #include "object.h"
 #include "lisp.h"
+#include "map.h"
 
-//typedef struct binstr binstr;
-typedef struct compiled_chunk compiled_chunk;
+extern map_t *addrs;
 
 void vm_init(context *c);
 
