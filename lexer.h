@@ -10,6 +10,8 @@ enum toktype {
     STRING,
     NUM,
     QUOTE,
+    BACKTICK,
+    COMMA,
     DOT,
     END
 };

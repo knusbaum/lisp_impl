@@ -56,6 +56,7 @@ object *new_object(enum obj_type t, void *o) {
         abort();
         break;
     case O_FN:
+    case O_MACRO:
     case O_CONS:
         ob->c = o;
         break;
@@ -87,6 +88,13 @@ object *new_object_fn(object *args, object *body) {
     return new_object(O_FN, cell);
 }
 
+object *new_object_macro(object *args, object *body) {
+    cons *cell = new_cons();
+    setcar(cell, args);
+    setcdr(cell, body);
+    return new_object(O_MACRO, cell);
+}
+
 object *new_object_list(size_t len, ...) {
     va_list ap;
     va_start(ap, len);
@@ -112,6 +120,16 @@ enum obj_type otype(object *o) {
 string *oval_symbol(object *o) {
     if(o->type != O_SYM) {
         printf("Expected sym, but have: ");
+        print_object(o);
+        printf("\n");
+        abort();
+    }
+    return o->str;
+}
+
+string *oval_keyword(object *o) {
+    if(o->type != O_KEYWORD) {
+        printf("Expected keyword, but have: ");
         print_object(o);
         printf("\n");
         abort();
@@ -160,6 +178,9 @@ object *oval_fn_body(object *o) {
 }
 
 object *ocar(object *o) {
+    if(o == obj_nil()) {
+        return obj_nil();
+    }
     if(o->type != O_CONS) {
         printf("Expected CONS cell, but have: ");
         print_object(o);
@@ -169,6 +190,9 @@ object *ocar(object *o) {
 }
 
 object *ocdr(object *o) {
+    if(o == obj_nil()) {
+        return obj_nil();
+    }
     if(o->type != O_CONS) {
         printf("Expected CONS cell, but have: ");
         print_object(o);
@@ -219,7 +243,10 @@ static void print_cdr(object *o) {
         printf(" . #<NATIVE FUNCTION>");
         break;
     case O_FN:
-        printf("#<FUNCTION @ %p>", o);
+        printf(" . #<FUNCTION @ %p>", o);
+        break;
+    case O_MACRO:
+        printf(" . #<MACRO @ %p>", o);
         break;
     }
 }
@@ -262,6 +289,9 @@ void print_object(object *o) {
         break;
     case O_FN:
         printf("#<FUNCTION @ %p>", o);
+        break;
+    case O_MACRO:
+        printf("#<MACRO @ %p>", o);
         break;
     }
 }

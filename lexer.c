@@ -143,6 +143,16 @@ void next_token(struct token *t) {
         t->type = KEYWORD;
         t->data = parse_symbol();
         break;
+    case '`':
+        t->type = BACKTICK;
+        t->data = NULL;
+        get_char();
+        break;
+    case ',':
+        t->type = COMMA;
+        t->data = NULL;
+        get_char();
+        break;
     case EOF:
         t->type = END;
         t->data = NULL;
@@ -177,6 +187,8 @@ void free_token(struct token *t) {
     case LPAREN:
     case RPAREN:
     case QUOTE:
+    case BACKTICK:
+    case COMMA:
     case END:
     case NUM:
     case NONE:
@@ -208,6 +220,12 @@ const char *toktype_str(enum toktype t) {
     case QUOTE:
         return "QUOTE";
         break;
+    case BACKTICK:
+        return "BACKTICK";
+        break;
+    case COMMA:
+        return "COMMA";
+        break;
     case DOT:
         return "DOT";
         break;
@@ -226,6 +244,8 @@ void print_token(struct token *t) {
     case LPAREN:
     case RPAREN:
     case QUOTE:
+    case BACKTICK:
+    case COMMA:
     case DOT:
     case END:
         printf("%s", toktype_str(t->type));

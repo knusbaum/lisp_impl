@@ -126,6 +126,18 @@ object *next_form() {
         o = new_object_cons(o, obj_nil());
         return new_object_cons(intern(new_string_copy("QUOTE")), o);
         break;
+    case BACKTICK:
+        get_next_tok();
+        o = next_form();
+        o = new_object_cons(o, obj_nil());
+        return new_object_cons(intern(new_string_copy("BACKTICK")), o);
+        break;
+    case COMMA:
+        get_next_tok();
+        o = next_form();
+        o = new_object_cons(o, obj_nil());
+        return new_object_cons(intern(new_string_copy("COMMA")), o);
+        break;
     default:
         printf("[parser.c][next_form] Got another token: ");
         print_token(currtok());

@@ -13,7 +13,8 @@ enum obj_type {
     O_CONS,
     O_FN,
     O_FN_NATIVE,
-    O_KEYWORD
+    O_KEYWORD,
+    O_MACRO
 };
 
 /** Object Operations **/
@@ -21,14 +22,16 @@ object *new_object(enum obj_type t, void *o);
 object *new_object_cons(object *car, object *cdr);
 object *new_object_long(long l);
 object *new_object_fn(object *args, object *body);
+object *new_object_macro(object *args, object *body);
 object *new_object_list(size_t len, ...);
 enum obj_type otype(object *o);
 string *oval_symbol(object *o);
+string *oval_keyword(object *o);
 string *oval_string(object *o);
 long oval_long(object *o);
 void (*oval_native(object *o))(void *, long);
-object *oval_fn_args(object *o);
-object *oval_fn_body(object *o);
+object *oval_fn_args(object *o); // Also for getting macro args
+object *oval_fn_body(object *o); // Also for getting macro body
 object *ocar(object *o);
 object *ocdr(object *o);
 object *osetcar(object *o, object *car);
