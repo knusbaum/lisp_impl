@@ -39,6 +39,7 @@ struct object {
         cons *c;
         long num;
         void (*native)(void *, long);
+        compiled_chunk *cc;
     };
 };
 
@@ -63,6 +64,9 @@ object *new_object(enum obj_type t, void *o) {
     case O_FN_NATIVE:
         ob->native = o;
         break;
+    case O_FN_COMPILED:
+        ob->cc = o;
+        break;
     }
     return ob;
 }
@@ -86,6 +90,10 @@ object *new_object_fn(object *args, object *body) {
     setcar(cell, args);
     setcdr(cell, body);
     return new_object(O_FN, cell);
+}
+
+object *new_object_fn_compiled(compiled_chunk *cc) {
+    return new_object(O_FN_COMPILED, cc);
 }
 
 object *new_object_macro(object *args, object *body) {
@@ -177,6 +185,10 @@ object *oval_fn_body(object *o) {
     return cdr(cell);
 }
 
+compiled_chunk *oval_fn_compiled(object *o) {
+    return o->cc;
+}
+
 object *ocar(object *o) {
     if(o == obj_nil()) {
         return obj_nil();
@@ -248,6 +260,9 @@ static void print_cdr(object *o) {
     case O_MACRO:
         printf(" . #<MACRO @ %p>", o);
         break;
+    case O_FN_COMPILED:
+        printf(" . #<COMPILED FUNCTION @ %p>", o);
+        break;
     }
 }
 
@@ -292,6 +307,9 @@ void print_object(object *o) {
         break;
     case O_MACRO:
         printf("#<MACRO @ %p>", o);
+        break;
+    case O_FN_COMPILED:
+        printf("#<COMPILED FUNCTION @ %p>", o);
         break;
     }
 }

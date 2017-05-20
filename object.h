@@ -6,6 +6,10 @@
 
 typedef struct object object;
 
+//** NEED REFACTORING **/
+typedef struct compiled_chunk compiled_chunk;
+//** END REFACTORING **/
+
 enum obj_type {
     O_SYM,
     O_STR,
@@ -14,7 +18,8 @@ enum obj_type {
     O_FN,
     O_FN_NATIVE,
     O_KEYWORD,
-    O_MACRO
+    O_MACRO,
+    O_FN_COMPILED
 };
 
 /** Object Operations **/
@@ -22,6 +27,7 @@ object *new_object(enum obj_type t, void *o);
 object *new_object_cons(object *car, object *cdr);
 object *new_object_long(long l);
 object *new_object_fn(object *args, object *body);
+object *new_object_fn_compiled(compiled_chunk *cc);
 object *new_object_macro(object *args, object *body);
 object *new_object_list(size_t len, ...);
 enum obj_type otype(object *o);
@@ -32,6 +38,7 @@ long oval_long(object *o);
 void (*oval_native(object *o))(void *, long);
 object *oval_fn_args(object *o); // Also for getting macro args
 object *oval_fn_body(object *o); // Also for getting macro body
+compiled_chunk *oval_fn_compiled(object *o);
 object *ocar(object *o);
 object *ocdr(object *o);
 object *osetcar(object *o, object *car);

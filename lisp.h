@@ -3,8 +3,10 @@
 
 #include "lexer.h"
 #include "parser.h"
+#include "object.h"
 
 typedef struct context context;
+
 
 context *new_context();
 context *push_context(context *curr);
