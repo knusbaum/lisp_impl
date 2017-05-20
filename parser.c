@@ -3,7 +3,7 @@
 #include "parser.h"
 #include "lexer.h"
 #include "map.h"
-#include "lisp.h"
+#include "context.h"
 
 struct parser {
     FILE *f;

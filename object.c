@@ -334,7 +334,6 @@ void print_object(object *o) {
 map_t *symbols;
 
 object *interns(char *symname) {
-    printf("Calling interns.\n");
     return intern(new_string_copy(symname));
 }
 

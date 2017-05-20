@@ -3,12 +3,13 @@ EXECUTABLE=lisp
 
 OBJECTS=main.o \
 		lexer.o \
-		lisp.o \
+		context.o \
 		map.o \
 		parser.o \
 		object.o \
 		lstring.o \
-		threaded_vm.o
+		threaded_vm.o \
+		compiler.o
 
 all: lisp
 
