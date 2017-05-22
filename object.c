@@ -225,6 +225,16 @@ object *oval_fn_body(object *o) {
 }
 
 compiled_chunk *oval_fn_compiled(object *o) {
+    if(o->type != O_FN_COMPILED && o->type != O_MACRO_COMPILED) {
+        printf("Expected compiled function, but have: ");
+        print_object(o);
+        printf("\n");
+        abort();
+    }
+    return o->cc;
+}
+
+compiled_chunk *oval_fn_compiled_unsafe(object *o) {
     return o->cc;
 }
 

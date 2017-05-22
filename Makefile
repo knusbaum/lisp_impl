@@ -1,4 +1,4 @@
-CFLAGS=-ggdb -O2 -Wall -Wextra -Werror
+CFLAGS=-ggdb -O2 -pg -Wall -Wextra -Werror
 EXECUTABLE=lisp
 
 OBJECTS=main.o \

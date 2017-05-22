@@ -8,6 +8,7 @@
 object *vm_s_quote;
 object *vm_s_backtick;
 object *vm_s_comma;
+object *vm_s_comma_at;
 object *vm_s_let;
 object *vm_s_fn;
 object *vm_s_if;
@@ -23,6 +24,7 @@ char *mk_label() {
 }
 
 static int str_eq(void *s1, void *s2) {
+    //printf("RUNNING STRING EQ\n");
     return strcmp((char *)s1, (char *)s2) == 0;
 }
 
@@ -30,6 +32,7 @@ void compiler_init() {
     vm_s_quote = interns("QUOTE");
     vm_s_backtick = interns("BACKTICK");
     vm_s_comma = interns("COMMA");
+    vm_s_comma_at = interns("COMMA_AT");
     vm_s_let = interns("LET");
     vm_s_fn = interns("FN");
     vm_s_if = interns("IF");
@@ -168,6 +171,33 @@ void bs_resolve(compiled_chunk *cc, context *c, object *sym) {
         bs_push(cc, sym);
         //add_binstr_arg(cc, map_get(addrs, "resolve_sym"), NULL);
     }
+}
+
+void bs_add(compiled_chunk *cc, long variance) {
+    printf("%ld@%p bs_add (%ld)\n", cc->b_off, cc, variance);
+    add_binstr_variance(cc, map_get(addrs, "add"), variance);
+    cc->stacklevel -= ((variance)-1);
+}
+
+void bs_subtract(compiled_chunk *cc, long variance) {
+    printf("%ld@%p bs_subtract (%ld)\n", cc->b_off, cc, variance);
+    add_binstr_variance(cc, map_get(addrs, "subtract"), variance);
+    cc->stacklevel -= ((variance)-1);
+}
+void bs_multiply(compiled_chunk *cc, long variance) {
+    printf("%ld@%p bs_multiply (%ld)\n", cc->b_off, cc, variance);
+    add_binstr_variance(cc, map_get(addrs, "multiply"), variance);
+    cc->stacklevel -= ((variance)-1);
+}
+void bs_divide(compiled_chunk *cc, long variance) {
+    printf("%ld@%p bs_divide (%ld)\n", cc->b_off, cc, variance);
+    add_binstr_variance(cc, map_get(addrs, "divide"), variance);
+    cc->stacklevel -= ((variance)-1);
+}
+void bs_num_eq(compiled_chunk *cc, long variance) {
+    printf("%ld@%p bs_num_eq (%ld)\n", cc->b_off, cc, variance);
+    add_binstr_variance(cc, map_get(addrs, "num_eq"), variance);
+    cc->stacklevel -= ((variance)-1);
 }
 
 void bs_call(compiled_chunk *cc, long variance) {
@@ -391,25 +421,38 @@ void vm_defmacro(compiled_chunk *cc, context *c, object *o) {
     bind_fn(c, fname, new_object_macro_compiled(macro_cc));
 }
 
-void vm_backtick(compiled_chunk *cc, context *c, object *o) {
+int vm_backtick(compiled_chunk *cc, context *c, object *o) {
     switch(otype(o)) {
     case O_CONS:
         if(ocar(o) == vm_s_comma) {
             compile_bytecode(cc, c, ocar(ocdr(o)));
+            return 0;
+        }
+        else if(ocar(o) == vm_s_comma_at) {
+            compile_bytecode(cc, c, ocar(ocdr(o)));
+            return 1;
         }
         else {
-            int num_args = 0;
+            bs_push(cc, obj_nil());
             for(object *each = o; each != obj_nil(); each = ocdr(each)) {
-                vm_backtick(cc, c, ocar(each));
-                num_args++;
+                int should_splice = vm_backtick(cc, c, ocar(each));
+                (void)should_splice;
+                if(should_splice) {
+                    bs_push(cc, lookup_fn(c, interns("SPLICE")));
+                    bs_call(cc, 2);
+                    
+                }
+                else {
+                    bs_push(cc, lookup_fn(c, interns("APPEND")));
+                    bs_call(cc, 2);
+                }
             }
-            object *fn = lookup_fn(c, interns("LIST"));
-            bs_push(cc, fn);
-            bs_call(cc, num_args);
+            return 0;
         }
         break;
     default:
         bs_push(cc, o);
+        return 0;
     }
 }
 
@@ -454,6 +497,57 @@ static void compile_cons(compiled_chunk *cc, context *c, object *o) {
     else if(func == vm_s_comma) {
         printf("Error: Comma outside of a backtick.\n");
         abort();
+    }
+    // inlined arithmetic
+    else if(func == interns("+")) {
+        long num_args = 0;
+        object *curr;
+        for(curr = ocdr(o); curr != obj_nil(); curr = ocdr(curr)) {
+            num_args++;
+            compile_bytecode(cc, c, ocar(curr));
+        }
+
+        bs_add(cc, num_args);
+    }
+    else if(func == interns("-")) {
+        long num_args = 0;
+        object *curr;
+        for(curr = ocdr(o); curr != obj_nil(); curr = ocdr(curr)) {
+            num_args++;
+            compile_bytecode(cc, c, ocar(curr));
+        }
+        
+        bs_subtract(cc, num_args);
+    }
+    else if(func == interns("*")) {
+        long num_args = 0;
+        object *curr;
+        for(curr = ocdr(o); curr != obj_nil(); curr = ocdr(curr)) {
+            num_args++;
+            compile_bytecode(cc, c, ocar(curr));
+        }
+
+        bs_multiply(cc, num_args);
+    }
+    else if(func == interns("/")) {
+        long num_args = 0;
+        object *curr;
+        for(curr = ocdr(o); curr != obj_nil(); curr = ocdr(curr)) {
+            num_args++;
+            compile_bytecode(cc, c, ocar(curr));
+        }
+
+        bs_divide(cc, num_args);
+    }
+    else if(func == interns("=")) {
+        long num_args = 0;
+        object *curr;
+        for(curr = ocdr(o); curr != obj_nil(); curr = ocdr(curr)) {
+            num_args++;
+            compile_bytecode(cc, c, ocar(curr));
+        }
+
+        bs_num_eq(cc, num_args);
     }
 //    else if(func == vm_s_for) {
 //        vm_for(cc, c, o);

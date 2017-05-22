@@ -43,9 +43,11 @@ string *oval_string(object *o);
 long oval_long(object *o);
 long oval_stackoffset(object *o);
 void (*oval_native(object *o))(void *, long);
+void (*oval_native_unsafe(object *o))(void *, long);
 object *oval_fn_args(object *o); // Also for getting macro args
 object *oval_fn_body(object *o); // Also for getting macro body
 compiled_chunk *oval_fn_compiled(object *o);
+compiled_chunk *oval_fn_compiled_unsafe(object *o);
 void oset_fn_compiled(object *o, compiled_chunk *cc);
 compiled_chunk *oval_macro_compiled(object *o);
 object *ocar(object *o);

@@ -40,14 +40,16 @@ size_t stack_size;
 //object *num_lt(context *c, object *arglist);
 //object *num_eq(context *c, object *arglist);
 
-void vm_plus(context *c, long variance);
-void vm_minus(context *c, long variance);
-void vm_mult(context *c, long variance);
-void vm_div(context *c, long variance);
+static inline void vm_plus(context *c, long variance);
+static inline void vm_minus(context *c, long variance);
+static inline void vm_mult(context *c, long variance);
+static inline void vm_div(context *c, long variance);
 void vm_num_eq(context *c, long variance);
 void vm_num_gt(context *c, long variance);
 void vm_num_lt(context *c, long variance);
 void vm_list(context *c, long variance);
+void vm_append(context *c, long variance);
+void vm_splice(context *c, long variance);
 void vm_car(context *c, long variance);
 void vm_cdr(context *c, long variance);
 void vm_cons(context *c, long variance);
@@ -72,6 +74,8 @@ void vm_init(context *c) {
     bind_native_fn(c, interns(">"), vm_num_gt);
     bind_native_fn(c, interns("<"), vm_num_lt);
     bind_native_fn(c, interns("LIST"), vm_list);
+    bind_native_fn(c, interns("APPEND"), vm_append);
+    bind_native_fn(c, interns("SPLICE"), vm_splice);
     bind_native_fn(c, interns("CAR"), vm_car);
     bind_native_fn(c, interns("CDR"), vm_cdr);
     bind_native_fn(c, interns("CONS"), vm_cons);
@@ -112,7 +116,7 @@ void dump_stack() {
     }
 }
 
-void vm_plus(context *c, long variance) {
+static inline void vm_plus(context *c, long variance) {
     (void)c;
     long val = 0;
     for(int i = 0; i < variance; i++) {
@@ -122,7 +126,7 @@ void vm_plus(context *c, long variance) {
     __push(new_object_long(val));
 }
 
-void vm_minus(context *c, long variance) {
+static inline void vm_minus(context *c, long variance) {
     (void)c;
     if(variance < 1) {
         printf("Expected at least 1 argument, but got none.\n");
@@ -137,7 +141,7 @@ void vm_minus(context *c, long variance) {
     __push(new_object_long(val));
 }
 
-void vm_mult(context *c, long variance) {
+static inline void vm_mult(context *c, long variance) {
     (void)c;
     long val = 1;
     for(int i = 0; i < variance; i++) {
@@ -146,7 +150,7 @@ void vm_mult(context *c, long variance) {
     __push(new_object_long(val));
 }
 
-void vm_div(context *c, long variance) {
+static inline void vm_div(context *c, long variance) {
     if(variance < 1) {
         printf("Expected at least 1 argument, but got none.\n");
         abort();
@@ -211,6 +215,48 @@ void vm_list(context *c, long variance) {
         cons = new_object_cons(__pop(), cons);
     }
     __push(cons);
+}
+
+void vm_append(context *c, long variance) {
+    if(variance != 2) {
+        printf("Expected exactly 2 arguments, but got %ld.\n", variance);
+        abort();
+    }
+
+    (void)c;
+    object *cons = new_object_cons(__pop(), obj_nil());
+    object *target = __pop();
+    if(target == obj_nil()) {
+        __push(cons);
+        return;
+    }
+    object *curr = target;
+    while(ocdr(curr) != obj_nil()) {
+        curr=ocdr(curr);
+    }
+    osetcdr(curr, cons);
+    __push(target);
+}
+
+void vm_splice(context *c, long variance) {
+    if(variance != 2) {
+        printf("Expected exactly 2 arguments, but got %ld.\n", variance);
+        abort();
+    }
+    
+    (void)c;
+    object *to_splice = __pop();
+    object *target = __pop();
+    if(target == obj_nil()) {
+        __push(to_splice);
+        return;
+    }
+    object *curr = target;
+    while(ocdr(curr) != obj_nil()) {
+        curr=ocdr(curr);
+    }
+    osetcdr(curr, to_splice);
+    __push(target);
 }
 
 void vm_car(context *c, long variance) {
@@ -307,10 +353,7 @@ void call(context *c, long variance) {
         printf("\n");
         abort();
     }
-    if(otype(fn) == O_FN_NATIVE) {
-        oval_native(fn)(c, variance);
-    }
-    else if (otype(fn) == O_FN_COMPILED) {
+    if (otype(fn) == O_FN_COMPILED) {
         compiled_chunk *cc = oval_fn_compiled(fn);
         run_vm(c, cc);
         object *ret = __pop();
@@ -318,6 +361,9 @@ void call(context *c, long variance) {
             __pop();
         }
         __push(ret);
+    }
+    else if(otype(fn) == O_FN_NATIVE) {
+        oval_native_unsafe(fn)(c, variance);
     }
     else if(otype(fn) == O_MACRO) {
         compiled_chunk *cc = oval_macro_compiled(fn);
@@ -328,6 +374,7 @@ void call(context *c, long variance) {
         printf("Cannot eval this thing. not implemented: ");
         print_object(fn);
         printf("\n");
+        //dump_stack();
         abort();
     }
 }
@@ -384,6 +431,11 @@ void *___vm(context *c, compiled_chunk *cc, int _get_vm_addrs) {
         map_put(m, "go", &&go);
         map_put(m, "go_if_nil", &&go_if_nil);
         map_put(m, "push_from_stack", &&push_from_stack);
+        map_put(m, "add", &&add);
+        map_put(m, "subtract", &&subtract);
+        map_put(m, "multiply", &&multiply);
+        map_put(m, "divide", &&divide);
+        map_put(m, "num_eq", &&num_eq);
         map_put(m, "exit", &&exit);
         return m;
     }
@@ -406,6 +458,9 @@ void *___vm(context *c, compiled_chunk *cc, int _get_vm_addrs) {
 
     size_t target;
     object *ret;
+    long mathvar;
+    long truthiness;
+    int i;
 chew_top:
     //printf("%ld@%p, CHEW_TOP (%ld): ", bs - cc->bs, cc, bs->offset);
     ret = __pop();
@@ -429,7 +484,8 @@ call:
     call(c, bs->variance);
     NEXTI;
 resolve_sym:
-    //printf("ABORTING. Should not be looking up syms at runtime.\n");
+    printf("ABORTING. Should not be looking up syms at runtime.\n");
+    abort();
     //printf("%ld@%p RESOLVE_SYM\n", bs - cc->bs, cc);
     resolve(c);
     NEXTI;
@@ -454,10 +510,10 @@ go:
     goto *bs->instr;
 go_if_nil:
     target = (size_t)map_get(cc->labels, bs->str);
-    ////printf("%ld@%p GO_IF_NIL (%s)(%ld) ", bs - cc->bs, cc, bs->str, target);
+    //printf("%ld@%p GO_IF_NIL (%s)(%ld) ", bs - cc->bs, cc, bs->str, target);
     if(__pop() == obj_nil()) {
         //printf("(jumping to %p)\n", (cc->bs + target)->instr);
-        target = (size_t)map_get(cc->labels, bs->str);
+        //target = (size_t)map_get(cc->labels, bs->str);
         bs->instr = &&go_if_nil_optim;
         bs->offset = target;
         bs = cc->bs + target;
@@ -482,7 +538,44 @@ push_from_stack:
     //printf("%ld@%p PUSH_FROM_STACK (%ld)\n", bs - cc->bs, cc, s_off - 1 - bs->offset);
     __push(stack[s_off - 1 - bs->offset]);
     NEXTI;
-
+add:
+    //printf("%ld@%p ADD (%ld)\n", bs - cc->bs, cc, bs->variance);
+    mathvar = 0;
+    for(i = 0; i < bs->variance; i++) {
+        mathvar += oval_long(__pop());
+    }
+    __push(new_object_long(mathvar));
+    NEXTI;
+subtract:
+    //printf("%ld@%p SUBTRACT (%ld)\n", bs - cc->bs, cc, bs->variance);
+    mathvar = 0;
+    for(i = 0; i < bs->variance - 1; i++) {
+        mathvar += oval_long(__pop());
+    }
+    mathvar = oval_long(__pop()) - mathvar;
+    __push(new_object_long(mathvar));
+    NEXTI;
+multiply:
+    vm_mult(c, bs->variance);
+    NEXTI;
+divide:
+    vm_div(c, bs->variance);
+    NEXTI;
+num_eq:
+    //printf("NUM_EQ\n");
+    truthiness = 1;
+    mathvar = oval_long(__pop());
+    for(long i = 0; i < bs->variance - 1; i++) {
+        truthiness = truthiness && (mathvar == oval_long(__pop()));
+    }
+    if(truthiness) {
+        __push(obj_t());
+    }
+    else {
+        __push(obj_nil());
+    }
+    NEXTI;
+    
 exit:
     //printf("%ld@%p EXIT\n", bs - cc->bs, cc);
     return NULL;
