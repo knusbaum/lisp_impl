@@ -216,15 +216,20 @@ void bs_label(compiled_chunk *cc, char *label) {
     map_put(cc->labels, label, (void *)cc->b_off);
 }
 
+#define BS_GO_TAG ((void *)0x0)
+#define BS_GO_IF_NIL_TAG ((void *)0x1)
+
 void bs_go(compiled_chunk *cc, char *label) {
     printf("%ld@%p bs_go: %s\n", cc->b_off, cc, label);
     add_binstr_str(cc, map_get(addrs, "go"), label);
+    //add_binstr_str(cc, BS_GO_TAG, label);
 }
 
 void bs_go_if_nil(compiled_chunk *cc, char *label) {
     printf("%ld@%p bs_go_if_nil: %s\n", cc->b_off, cc, label);
     add_binstr_str(cc, map_get(addrs, "go_if_nil"), label);
     cc->stacklevel--;
+    //add_binstr_str(cc, BS_GO_IF_NIL_TAG, label);
 }
 
 // Reverse the bind order and handle variadic calls
@@ -320,6 +325,19 @@ void compile_fn(compiled_chunk *fn_cc, context *c, object *fn) {
     bs_exit(fn_cc);
 }
 
+//static void resolve_labels(compiled_chunk *cc) {
+//    for(size_t i = 0; i < cc ->b_off; i++) {
+//        if(cc->bs[i].instr == BS_GO_TAG) {
+//            cc->bs[i].offset = (size_t)map_get(cc->labels, cc->bs[i].str);
+//            cc->bs[i].instr = map_get(addrs, "go_optim");
+//        }
+//        else if(cc->bs[i].instr == BS_GO_IF_NIL_TAG) {
+//            cc->bs[i].offset = (size_t)map_get(cc->labels, cc->bs[i].str);
+//            cc->bs[i].instr = map_get(addrs, "go_if_nil_optim");
+//        }
+//    }
+//}
+
 static void vm_let(compiled_chunk *cc, context *c, object *o) {
     //bs_push_context(cc);
 
@@ -372,6 +390,7 @@ static void vm_fn(compiled_chunk *cc, context *c, object *o) {
     bind_fn(c, fname, fn);
     //printf("Compiling fn %s into cc: %p\n", string_ptr(oval_symbol(fname)), fn_cc);
     compile_fn(fn_cc, c, new_object_fn(fargs, body));
+    //resolve_labels(fn_cc);
 }
 
 void vm_if(compiled_chunk *cc, context *c, object *o) {
@@ -419,6 +438,7 @@ void vm_defmacro(compiled_chunk *cc, context *c, object *o) {
     compiled_chunk *macro_cc = new_compiled_chunk();
     compile_fn(macro_cc, c, new_object_fn(fargs, body));
     bind_fn(c, fname, new_object_macro_compiled(macro_cc));
+    //resolve_labels(macro_cc);
 }
 
 int vm_backtick(compiled_chunk *cc, context *c, object *o) {
@@ -703,6 +723,7 @@ compiled_chunk *compile_form(context *c, object *o) {
 
     compile_bytecode(cc, c, o);
     bs_exit(cc);
-
+    //resolve_labels(cc);
+    
     return cc;
 }

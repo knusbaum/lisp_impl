@@ -502,20 +502,26 @@ pop_lex_context:
     c = pop_context(c);
     NEXTI;
 go:
+//    printf("Deprecated\n");
+//    abort();
     target = (size_t)map_get(cc->labels, bs->str);
-    //printf("%ld@%p GO (%s)(%ld)\n", bs - cc->bs, cc, bs->str, target);
+    //printf("%ld@%p (%p)GO (%s)(%ld)\n", bs - cc->bs, cc, bs, bs->str, target);
     bs->instr = &&go_optim;
     bs->offset = target;
     bs = cc->bs + target;
     goto *bs->instr;
 go_if_nil:
+//    printf("Deprecated\n");
+//    abort();
     target = (size_t)map_get(cc->labels, bs->str);
-    //printf("%ld@%p GO_IF_NIL (%s)(%ld) ", bs - cc->bs, cc, bs->str, target);
+    //printf("%ld@%p (%p)GO_IF_NIL (%s)(%ld) ", bs - cc->bs, cc, bs, bs->str, target);
+    bs->instr = &&go_if_nil_optim;
+    bs->offset = target;
     if(__pop() == obj_nil()) {
         //printf("(jumping to %p)\n", (cc->bs + target)->instr);
         //target = (size_t)map_get(cc->labels, bs->str);
-        bs->instr = &&go_if_nil_optim;
-        bs->offset = target;
+        //bs->instr = &&go_if_nil_optim;
+        //bs->offset = target;
         bs = cc->bs + target;
         goto *bs->instr;
     }

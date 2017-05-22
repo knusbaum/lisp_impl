@@ -1,5 +1,5 @@
 #ifndef COMPILER_H
-#define COMIILER_H
+#define COMPILER_H
 
 #include "object.h"
 #include "map.h"
