@@ -134,9 +134,21 @@ object *next_form() {
         break;
     case COMMA:
         get_next_tok();
-        o = next_form();
-        o = new_object_cons(o, obj_nil());
-        return new_object_cons(intern(new_string_copy("COMMA")), o);
+        if(currtok()->type == AT_SYMBOL) {
+            get_next_tok();
+            o = next_form();
+            o = new_object_cons(o, obj_nil());
+            return new_object_cons(intern(new_string_copy("COMMA_AT")), o);
+        }
+        else {
+            o = next_form();
+            o = new_object_cons(o, obj_nil());
+            return new_object_cons(intern(new_string_copy("COMMA")), o);
+        }
+        break;
+    case AT_SYMBOL:
+        printf("[parser.c][next_form] @ symbol not with comma.\n");
+        abort();
         break;
     default:
         printf("[parser.c][next_form] Got another token: ");

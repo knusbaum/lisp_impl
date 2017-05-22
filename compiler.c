@@ -100,23 +100,25 @@ void free_compiled_chunk(compiled_chunk *c) {
     free(c);
 }
 
+void bs_chew_top(compiled_chunk *cc, size_t num) {
+    printf("%ld@%p bs_chew_top: (%ld)", cc->b_off, cc, num);
+    add_binstr_offset(cc, map_get(addrs, "chew_top"), num);
+    cc->stacklevel -= num;
+}
+
 void bs_push(compiled_chunk *cc, object *o) {
     printf("%ld@%p bs_push: ", cc->b_off, cc);
     print_object(o);
     printf("\n");
-    //if(o == vm_s_if) {
-    //    abort();
-    //}
+
     add_binstr_arg(cc, map_get(addrs, "push"), o);
     cc->stacklevel++;
-    printf("\t Adding 1 to stacklevel. (%ld)\n", cc->stacklevel);
 }
 
 void bs_pop(compiled_chunk *cc) {
     printf("%ld@%p bs_pop\n", cc->b_off, cc);
     add_binstr_arg(cc, map_get(addrs, "pop"), NULL);
     cc->stacklevel--;
-    printf("\t Subtracting 1 from stacklevel. (%ld)\n", cc->stacklevel);
 }
 
 void bs_push_context(compiled_chunk *cc) {
@@ -141,11 +143,10 @@ void bs_push_from_stack(compiled_chunk *cc, size_t offset) {
     printf("%ld@%p push_from_stack: %ld\n", cc->b_off, cc, offset);
     add_binstr_offset(cc, map_get(addrs, "push_from_stack"), offset);
     cc->stacklevel++;
-    printf("\t Adding 1 to stacklevel (%ld).\n", cc->stacklevel);
 }
 
 void bs_resolve(compiled_chunk *cc, context *c, object *sym) {
-    printf("%ld@%p bs_resolve: resolving: %s\n", cc->b_off, cc, string_ptr(oval_symbol(sym)));
+    //printf("%ld@%p bs_resolve: resolving: %s\n", cc->b_off, cc, string_ptr(oval_symbol(sym)));
     //
     object *var_stacklevel = lookup_var(c, sym);
     if(!var_stacklevel) {
@@ -155,16 +156,17 @@ void bs_resolve(compiled_chunk *cc, context *c, object *sym) {
         abort();
     }
     if(otype(var_stacklevel) == O_STACKOFFSET) {
-        printf("Resolving to: %ld, %ld from top of stack (%ld): (%p)\n", oval_stackoffset(var_stacklevel), cc->stacklevel - oval_stackoffset(var_stacklevel), cc->stacklevel, var_stacklevel);
+        
+        //printf("Resolving to: %ld, %ld from top of stack (%ld): (%p)\n", oval_stackoffset(var_stacklevel), cc->stacklevel - oval_stackoffset(var_stacklevel), cc->stacklevel, var_stacklevel);
         bs_push_from_stack(cc, cc->stacklevel - oval_stackoffset(var_stacklevel));
     }
     else {
-        printf("(%p) Type of sym: %d\n", var_stacklevel, otype(var_stacklevel));
-        printf("Value: ");
-        print_object(var_stacklevel);
-        printf("\n");
+//        printf("(%p) Type of sym: %d\n", var_stacklevel, otype(var_stacklevel));
+//        printf("Value: ");
+//        print_object(var_stacklevel);
+//        printf("\n");
         bs_push(cc, sym);
-        add_binstr_arg(cc, map_get(addrs, "resolve_sym"), NULL);
+        //add_binstr_arg(cc, map_get(addrs, "resolve_sym"), NULL);
     }
 }
 
@@ -172,7 +174,6 @@ void bs_call(compiled_chunk *cc, long variance) {
     printf("%ld@%p bs_call (%ld)\n", cc->b_off, cc, variance);
     add_binstr_variance(cc, map_get(addrs, "call"), variance);
     cc->stacklevel -= (variance); // num args + function - return val
-    printf("\t Subtracting %ld from stacklevel. (%ld)\n", variance, cc->stacklevel);
 }
 
 void bs_exit(compiled_chunk *cc) {
@@ -194,7 +195,6 @@ void bs_go_if_nil(compiled_chunk *cc, char *label) {
     printf("%ld@%p bs_go_if_nil: %s\n", cc->b_off, cc, label);
     add_binstr_str(cc, map_get(addrs, "go_if_nil"), label);
     cc->stacklevel--;
-    printf("\t Subtracting 1 from stacklevel. (%ld)\n", cc->stacklevel);    
 }
 
 // Reverse the bind order and handle variadic calls
@@ -214,6 +214,7 @@ long fn_bind_params(compiled_chunk *cc, context *c, object *curr, long variance)
         }
         //bs_push(cc, param);
         bs_bind(cc, c, param);
+        cc->stacklevel++;
 //        printf("Binding %p to %ld in %p\n", param, variance, c);
 //        bind_var(c, param, new_object_long(variance));
         curr = ocdr(curr);
@@ -230,7 +231,7 @@ long fn_bind_params(compiled_chunk *cc, context *c, object *curr, long variance)
 
     bs_bind(cc, c, param);
     cc->stacklevel++;
-    printf("\t Adding 1 to stacklevel. (%ld)\n", cc->stacklevel);
+    //printf("\t Adding 1 to stacklevel. (%ld)\n", cc->stacklevel);
     //printf("Binding %p to %ld in %p\n", param, variance, c);
     //bind_var(c, param, new_object_long(variance)); //(void *)variance);
     variance = fn_bind_params(cc, c, ocdr(curr), variance);
@@ -246,7 +247,7 @@ long fn_bind_params(compiled_chunk *cc, context *c, object *curr, long variance)
 }
 
 void fn_call(compiled_chunk *cc, context *c, object *fn) {
-    bs_push_context(cc);
+    //bs_push_context(cc);
     c = push_context(c); // pushing context for var binding.
     object *fargs = oval_fn_args(fn);
     object *fbody = oval_fn_body(fn);
@@ -254,20 +255,16 @@ void fn_call(compiled_chunk *cc, context *c, object *fn) {
     cc->variance = fn_bind_params(cc, c, fargs, 0);
     cc->stacklevel--; //= cc->variance;
     
-    printf("Compiling body.\n"); 
-    object *ret = obj_nil();
-    bs_push(cc, ret);
+    int first_form = 1;
     for(; fbody != obj_nil(); fbody = ocdr(fbody)) {
-        bs_pop(cc);
+        if(!first_form) {
+            bs_pop(cc);
+        }
+        first_form = 0;
         object *form = ocar(fbody);
         compile_bytecode(cc, c, form);
     }
-    printf("END Compiling body.\n");
-//    for(int i = 0; i < cc->variance; i++) {
-//        bs_pop(cc);
-//    }
     c = pop_context(c);
-    bs_pop_context(cc);
 }
 
 void compile_fn(compiled_chunk *fn_cc, context *c, object *fn) {
@@ -294,20 +291,32 @@ void compile_fn(compiled_chunk *fn_cc, context *c, object *fn) {
 }
 
 static void vm_let(compiled_chunk *cc, context *c, object *o) {
-    bs_push_context(cc);
+    //bs_push_context(cc);
 
     object *letlist = ocar(ocdr(o));
+    long pushlen = 0;
     for(object *frm = letlist; frm != obj_nil(); frm = ocdr(frm)) {
         object *assign = ocar(frm);
         object *sym = ocar(assign);
         compile_bytecode(cc, c, ocar(ocdr(assign)));
         //bs_push(cc, sym);
         bs_bind(cc, c, sym);
+        pushlen++;
     }
+    int first_time = 1; // Pop the previous result. It will be unused. (only the last form is "returned.")
     for(object *body = ocdr(ocdr(o)); body != obj_nil(); body = ocdr(body)) {
+        if(!first_time) {
+            bs_pop(cc);
+        }
+        first_time=0;
         compile_bytecode(cc, c, ocar(body));
+        
     }
-    bs_pop_context(cc);
+    bs_chew_top(cc, pushlen);
+//    for(int i = 0; i < pushlen; i++) {
+//        bs_pop(cc);
+//    }
+    //bs_pop_context(cc);
 }
 
 static void vm_fn(compiled_chunk *cc, context *c, object *o) {
@@ -343,12 +352,17 @@ void vm_if(compiled_chunk *cc, context *c, object *o) {
     char *false_branch_lab = mk_label();
     char *end_branch_lab = mk_label();
 
+    // Conditional
     compile_bytecode(cc, c, ocar(cond));
     bs_go_if_nil(cc, false_branch_lab);
+    long stackoff = cc->stacklevel;
 
+    // True branch
     compile_bytecode(cc, c, ocar(true_branch));
     bs_go(cc, end_branch_lab);
 
+    // False branch
+    cc->stacklevel = stackoff; // stack offset must be reset since above code was not run if we're executing this.
     bs_label(cc, false_branch_lab);
     compile_bytecode(cc, c, false_branch);
     bs_label(cc, end_branch_lab);
@@ -463,6 +477,7 @@ static void compile_cons(compiled_chunk *cc, context *c, object *o) {
 
             if(num_args > fn_cc->variance) {
                 if(fn_cc->flags & CC_FLAG_HAS_REST) {
+                    printf("PUSHING REST AS LIST!!!\n");
                     bs_push(cc, lookup_fn(c, interns("LIST")));
                     bs_call(cc, num_args - fn_cc->variance);
                 }
@@ -476,7 +491,6 @@ static void compile_cons(compiled_chunk *cc, context *c, object *o) {
             bs_call(cc, num_args);
         }
         else {
-            printf("Compiling function call.\n");
             int num_args = 0;
             for(object *curr = ocdr(o); curr != obj_nil(); curr = ocdr(curr)) {
                 num_args++;
@@ -498,18 +512,6 @@ void compile_bytecode(compiled_chunk *cc, context *c, object *o) {
     case O_SYM:
         //bs_push(cc, o);
         bs_resolve(cc, c, o);
-//        stack_offset = lookup_var(c, o);
-//        printf("Looking up %p in %p: ", o, c);
-//        print_object(stack_offset);
-//        printf("\n");
-//        
-//        if(!stack_offset || stack_offset == obj_nil() || otype(stack_offset) != O_NUM) {
-//            bs_push(cc, o);
-//            bs_resolve(cc);
-//        }
-//        else {
-//            bs_push_from_stack(cc, oval_long(stack_offset));
-//        }
         break;
     case O_STR:
         bs_push(cc, o);
@@ -544,7 +546,7 @@ object *expand_macros_rec(compiled_chunk *cc, context *c, object *o, size_t rec)
             printf("Expanding: ");
             print_object(o);
             printf("\n");
-            int num_args = 0;
+            long num_args = 0;
             for(object *margs = ocdr(o); margs != obj_nil(); margs = ocdr(margs)) {
                 printf("Pushing: ");
                 print_object(ocar(margs));
@@ -553,8 +555,28 @@ object *expand_macros_rec(compiled_chunk *cc, context *c, object *o, size_t rec)
                 num_args++;
             }
 
+            compiled_chunk *fn_cc = oval_fn_compiled(func);
+            printf("HAVE %ld ARGS AND MACRO VARIANCE IS: %ld\n", num_args, fn_cc->variance);
+            if(num_args > fn_cc->variance) {
+                if(fn_cc->flags & CC_FLAG_HAS_REST) {
+                    printf("PUSHING REST AS LIST!!!\n");
+                    push(lookup_fn(c, interns("LIST")));
+                    call(c, num_args - fn_cc->variance);
+                    printf("Dumping stack:\n");
+                    dump_stack();
+                }
+                else {
+                    printf("Expected exactly %ld arguments, but got %ld.\n", fn_cc->variance, num_args);
+                    abort();
+                }
+            }
+            
             run_vm(c, oval_fn_compiled(func));
+            
             object *exp = pop();
+            for(int i = 0; i < num_args; i++) {
+                pop();
+            }
             printf("Expanded: ");
             print_object(exp);
             printf("\n");

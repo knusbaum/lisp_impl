@@ -153,6 +153,11 @@ void next_token(struct token *t) {
         t->data = NULL;
         get_char();
         break;
+    case '@':
+        t->type = AT_SYMBOL;
+        t->data = NULL;
+        get_char();
+        break;
     case EOF:
         t->type = END;
         t->data = NULL;
@@ -189,6 +194,7 @@ void free_token(struct token *t) {
     case QUOTE:
     case BACKTICK:
     case COMMA:
+    case AT_SYMBOL:
     case END:
     case NUM:
     case NONE:
@@ -225,6 +231,9 @@ const char *toktype_str(enum toktype t) {
         break;
     case COMMA:
         return "COMMA";
+        break;
+    case AT_SYMBOL:
+        return "AT_SYMBOL";
         break;
     case DOT:
         return "DOT";

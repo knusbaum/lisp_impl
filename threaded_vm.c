@@ -17,7 +17,7 @@ map_t *get_vm_addrs();
 void run_vm(context *c, compiled_chunk *cc);
 
 
-#define INIT_STACK 1
+#define INIT_STACK 4096
 object **stack;
 size_t s_off;
 size_t stack_size;
@@ -82,29 +82,33 @@ void vm_init(context *c) {
     addrs = get_vm_addrs();
 }
 
-void push(object *o) {
-    if(s_off == stack_size) {
-        stack_size *= 2;
-        stack = realloc(stack, stack_size * sizeof (object *));
-    }
-//    if(s_off == 4096) {
-//        printf("Blew the stack.\n");
-//        abort();
+static inline void __push(object *o) {
+//    if(s_off == stack_size) {
+//        stack_size *= 2;
+//        stack = realloc(stack, stack_size * sizeof (object *));
 //    }
-    printf("Pushing to stack offset: %ld\n", s_off);
+//    printf("Pushing to stack offset: %ld\n", s_off);
     stack[s_off++] = o;
 }
 
-object *pop() {
+static inline object *__pop() {
     if(s_off == 0) return obj_nil();
-    printf("Popping from stack offset: %ld\n", s_off - 1);
+    //printf("Popping from stack offset: %ld\n", s_off - 1);
     return stack[--s_off];
+}
+
+void push(object *o) {
+    __push(o);
+}
+
+object *pop() {
+    return __pop();
 }
 
 void dump_stack() {
     for(size_t i = 0; i < s_off; i++) {
         print_object(stack[i]);
-        printf("\n");
+        printf("\n---------------------\n");
     }
 }
 
@@ -112,10 +116,10 @@ void vm_plus(context *c, long variance) {
     (void)c;
     long val = 0;
     for(int i = 0; i < variance; i++) {
-        object * v = pop();
+        object * v = __pop();
         val += oval_long(v);
     }
-    push(new_object_long(val));
+    __push(new_object_long(val));
 }
 
 void vm_minus(context *c, long variance) {
@@ -127,19 +131,19 @@ void vm_minus(context *c, long variance) {
 
     long val = 0;
     for(int i = 0; i < variance - 1; i++) {
-        val += oval_long(pop());
+        val += oval_long(__pop());
     }
-    val = oval_long(pop()) - val;
-    push(new_object_long(val));
+    val = oval_long(__pop()) - val;
+    __push(new_object_long(val));
 }
 
 void vm_mult(context *c, long variance) {
     (void)c;
     long val = 1;
     for(int i = 0; i < variance; i++) {
-        val *= oval_long(pop());
+        val *= oval_long(__pop());
     }
-    push(new_object_long(val));
+    __push(new_object_long(val));
 }
 
 void vm_div(context *c, long variance) {
@@ -150,10 +154,10 @@ void vm_div(context *c, long variance) {
     (void)c;
     long val = 1;
     for(int i = 0; i < variance - 1; i++) {
-        val *= oval_long(pop());
+        val *= oval_long(__pop());
     }
-    val = oval_long(pop()) / val;
-    push(new_object_long(val));
+    val = oval_long(__pop()) / val;
+    __push(new_object_long(val));
 }
 
 void vm_num_eq(context *c, long variance) {
@@ -162,11 +166,11 @@ void vm_num_eq(context *c, long variance) {
         printf("Expected exactly 2 arguments, but got %ld.\n", variance);
         abort();
     }
-    if(oval_long(pop()) == oval_long(pop())) {
-        push(obj_t());
+    if(oval_long(__pop()) == oval_long(__pop())) {
+        __push(obj_t());
     }
     else {
-        push(obj_nil());
+        __push(obj_nil());
     }
 }
 
@@ -177,11 +181,11 @@ void vm_num_gt(context *c, long variance) {
         abort();
     }
     // args are reversed.
-    if(oval_long(pop()) <= oval_long(pop())) {
-        push(obj_t());
+    if(oval_long(__pop()) <= oval_long(__pop())) {
+        __push(obj_t());
     }
     else {
-        push(obj_nil());
+        __push(obj_nil());
     }
 }
 
@@ -192,11 +196,11 @@ void vm_num_lt(context *c, long variance) {
         abort();
     }
     // args are reversed.
-    if(oval_long(pop()) >= oval_long(pop())) {
-        push(obj_t());
+    if(oval_long(__pop()) >= oval_long(__pop())) {
+        __push(obj_t());
     }
     else {
-        push(obj_nil());
+        __push(obj_nil());
     }
 }
 
@@ -204,9 +208,9 @@ void vm_list(context *c, long variance) {
     (void)c;
     object *cons = obj_nil();
     for(int i = 0; i < variance; i++) {
-        cons = new_object_cons(pop(), cons);
+        cons = new_object_cons(__pop(), cons);
     }
-    push(cons);
+    __push(cons);
 }
 
 void vm_car(context *c, long variance) {
@@ -215,8 +219,8 @@ void vm_car(context *c, long variance) {
         printf("Expected exactly 1 argument, but got %ld.\n", variance);
         abort();
     }
-    object *list = pop();
-    push(ocar(list));
+    object *list = __pop();
+    __push(ocar(list));
 }
 
 void vm_cdr(context *c, long variance) {
@@ -225,8 +229,8 @@ void vm_cdr(context *c, long variance) {
         printf("Expected exactly 1 argument, but got %ld.\n", variance);
         abort();
     }
-    object *list = pop();
-    push(ocdr(list));
+    object *list = __pop();
+    __push(ocdr(list));
 }
 
 void vm_cons(context *c, long variance) {
@@ -235,10 +239,10 @@ void vm_cons(context *c, long variance) {
         printf("Expected exactly 2 arguments, but got %ld.\n", variance);
         abort();
     }
-    object *cdr = pop();
-    object *car = pop();
+    object *cdr = __pop();
+    object *car = __pop();
     object *cons = new_object_cons(car, cdr);
-    push(cons);
+    __push(cons);
 }
 
 void vm_length(context *c, long variance) {
@@ -249,10 +253,10 @@ void vm_length(context *c, long variance) {
     }
 
     long len = 0;
-    for(object *curr = pop(); curr != obj_nil(); curr = ocdr(curr)) {
+    for(object *curr = __pop(); curr != obj_nil(); curr = ocdr(curr)) {
         len++;
     }
-    push(new_object_long(len));
+    __push(new_object_long(len));
 }
 
 void vm_eq(context *c, long variance) {
@@ -261,11 +265,11 @@ void vm_eq(context *c, long variance) {
         printf("Expected exactly 2 arguments, but got %ld.\n", variance);
         abort();
     }
-    if(pop() == pop()) {
-        push(obj_t());
+    if(__pop() == __pop()) {
+        __push(obj_t());
     }
     else {
-        push(obj_nil());
+        __push(obj_nil());
     }
 }
 
@@ -296,7 +300,7 @@ void vm_eq(context *c, long variance) {
 void call(context *c, long variance) {
     //object *fsym = pop();
 
-    object *fn = pop(); //lookup_fn(c, fsym);
+    object *fn = __pop(); //lookup_fn(c, fsym);
     if(fn == obj_nil() || fn == NULL) {
         printf("Cannot call function: ");
         print_object(fn);
@@ -309,15 +313,15 @@ void call(context *c, long variance) {
     else if (otype(fn) == O_FN_COMPILED) {
         compiled_chunk *cc = oval_fn_compiled(fn);
         run_vm(c, cc);
-        object *ret = pop();
+        object *ret = __pop();
         for(int i = 0; i < variance; i++) {
-            pop();
+            __pop();
         }
-        push(ret);
+        __push(ret);
     }
     else if(otype(fn) == O_MACRO) {
         compiled_chunk *cc = oval_macro_compiled(fn);
-        object *result = pop();
+        object *result = __pop();
         compile_bytecode(cc, c, result);
     }
     else {
@@ -329,16 +333,16 @@ void call(context *c, long variance) {
 }
 
 void bind(context *c) {
-    object *sym = pop();
-    object *val = pop();
+    object *sym = __pop();
+    object *val = __pop();
     bind_var(c, sym, val);
 }
 
 void resolve(context *c) {
-    object *sym = pop();
+    object *sym = __pop();
     object *val = lookup_var(c, sym);
     if(val) {
-        push(val);
+        __push(val);
     }
     else {
         printf("Error: Symbol %s is not bound.\n", string_ptr(oval_symbol(sym)));
@@ -349,23 +353,27 @@ void resolve(context *c) {
 
 object *vm_eval(context *c, object *o) {
     compiled_chunk *cc = compile_form(c, o);
-
+    
     run_vm(c, cc);
+    printf("AFTER EXECUTION: \n");
+    printf("Dumping stack:\n");
+    dump_stack();
     printf("Stack length: %ld\n", s_off);
-    return pop();
+    return __pop();
 }
 
+//        dump_stack();                             
+//        printf("--------------------------\n");   
 
 #define NEXTI {                                 \
         bs++;                                   \
-        dump_stack();                           \
-        printf("--------------------------\n"); \
         goto *bs->instr;                        \
     };
 
 void *___vm(context *c, compiled_chunk *cc, int _get_vm_addrs) {
     if(_get_vm_addrs) {
         map_t *m = map_create(str_eq);
+        map_put(m, "chew_top", &&chew_top);
         map_put(m, "push", &&push);
         map_put(m, "pop", &&pop);
         map_put(m, "call", &&call);
@@ -397,79 +405,86 @@ void *___vm(context *c, compiled_chunk *cc, int _get_vm_addrs) {
     return NULL;
 
     size_t target;
-
+    object *ret;
+chew_top:
+    //printf("%ld@%p, CHEW_TOP (%ld): ", bs - cc->bs, cc, bs->offset);
+    ret = __pop();
+    s_off -= bs->offset;
+    __push(ret);
+    NEXTI;
 push:
-    printf("%ld@%p, PUSH: ", bs - cc->bs, cc);
-    print_object(bs->arg);
-    printf("\n");
-    push(bs->arg);
+    //printf("%ld@%p, PUSH: ", bs - cc->bs, cc);
+    //print_object(bs->arg);
+    //printf("\n");
+    __push(bs->arg);
     NEXTI;
 pop:
-    printf("%ld@%p POP: ", bs - cc->bs, cc);
-    print_object(pop());
-    printf("\n");
-    //pop();
+    //printf("%ld@%p POP: ", bs - cc->bs, cc);
+    //print_object(__pop());
+    //printf("\n");
+    __pop();
     NEXTI;
 call:
-    printf("%ld@%p CALL (%ld)\n", bs - cc->bs, cc, bs->variance);
+    //printf("%ld@%p CALL (%ld)\n", bs - cc->bs, cc, bs->variance);
     call(c, bs->variance);
     NEXTI;
 resolve_sym:
-    printf("%ld@%p RESOLVE_SYM\n", bs - cc->bs, cc);
+    //printf("ABORTING. Should not be looking up syms at runtime.\n");
+    //printf("%ld@%p RESOLVE_SYM\n", bs - cc->bs, cc);
     resolve(c);
     NEXTI;
 bind:
-    printf("%ld@%p BIND\n", bs - cc->bs, cc);
+    //printf("%ld@%p BIND\n", bs - cc->bs, cc);
     bind(c);
     NEXTI;
 push_lex_context:
-    printf("%ld@%p PUSH_LEX_CONTEXT\n", bs - cc->bs, cc);
+    //printf("%ld@%p PUSH_LEX_CONTEXT\n", bs - cc->bs, cc);
     c = push_context(c);
     NEXTI;
 pop_lex_context:
-    printf("%ld@%p POP_LEX_CONTEXT\n", bs - cc->bs, cc);
+    //printf("%ld@%p POP_LEX_CONTEXT\n", bs - cc->bs, cc);
     c = pop_context(c);
     NEXTI;
 go:
     target = (size_t)map_get(cc->labels, bs->str);
-    printf("%ld@%p GO (%s)(%ld)\n", bs - cc->bs, cc, bs->str, target);
+    //printf("%ld@%p GO (%s)(%ld)\n", bs - cc->bs, cc, bs->str, target);
     bs->instr = &&go_optim;
     bs->offset = target;
     bs = cc->bs + target;
     goto *bs->instr;
 go_if_nil:
     target = (size_t)map_get(cc->labels, bs->str);
-    printf("%ld@%p GO_IF_NIL (%s)(%ld) ", bs - cc->bs, cc, bs->str, target);
-    if(pop() == obj_nil()) {
-        printf("(jumping to %p)\n", (cc->bs + target)->instr);
-        //target = (size_t)map_get(cc->labels, bs->str);
+    ////printf("%ld@%p GO_IF_NIL (%s)(%ld) ", bs - cc->bs, cc, bs->str, target);
+    if(__pop() == obj_nil()) {
+        //printf("(jumping to %p)\n", (cc->bs + target)->instr);
+        target = (size_t)map_get(cc->labels, bs->str);
         bs->instr = &&go_if_nil_optim;
         bs->offset = target;
         bs = cc->bs + target;
         goto *bs->instr;
     }
-    printf("(not jumping)\n");
+    //printf("(not jumping)\n");
     NEXTI;
 go_optim:
-    printf("%ld@%p GO_OPTIM (%ld)\n", bs - cc->bs, cc, bs->offset);
+    //printf("%ld@%p GO_OPTIM (%ld)\n", bs - cc->bs, cc, bs->offset);
     bs = cc->bs + bs->offset;
     goto *bs->instr;
 go_if_nil_optim:
-    printf("%ld@%p GO_IF_NIL_OPTIM (%ld) ", bs - cc->bs, cc, bs->offset);
-    if(pop() == obj_nil()) {
-        printf("(jumping)\n");
+    //printf("%ld@%p GO_IF_NIL_OPTIM (%ld) ", bs - cc->bs, cc, bs->offset);
+    if(__pop() == obj_nil()) {
+        //printf("(jumping)\n");
         bs = cc->bs + bs->offset;
         goto *bs->instr;
     }
-    printf("(not jumping)\n");
+    //printf("(not jumping)\n");
     NEXTI;
 push_from_stack:
-    printf("%ld@%p PUSH_FROM_STACK (%ld)\n", bs - cc->bs, cc, s_off - 1 - bs->offset);
-    push(stack[s_off - 1 - bs->offset]);
+    //printf("%ld@%p PUSH_FROM_STACK (%ld)\n", bs - cc->bs, cc, s_off - 1 - bs->offset);
+    __push(stack[s_off - 1 - bs->offset]);
     NEXTI;
 
 exit:
-    printf("%ld@%p EXIT\n", bs - cc->bs, cc);
+    //printf("%ld@%p EXIT\n", bs - cc->bs, cc);
     return NULL;
 }
 

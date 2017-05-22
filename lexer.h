@@ -12,6 +12,7 @@ enum toktype {
     QUOTE,
     BACKTICK,
     COMMA,
+    AT_SYMBOL,
     DOT,
     END
 };

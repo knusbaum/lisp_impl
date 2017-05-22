@@ -210,6 +210,10 @@ void (*oval_native(object *o))(void *, long) {
     return o->native;
 }
 
+void (*oval_native_unsafe(object *o))(void *, long) {
+    return o->native;
+}
+
 object *oval_fn_args(object *o) {
     cons *cell = o->c;
     return car(cell);
