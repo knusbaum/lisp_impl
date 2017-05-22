@@ -11,7 +11,7 @@ typedef struct compiled_chunk compiled_chunk;
 //** END REFACTORING **/
 
 enum obj_type {
-    O_SYM = 0,
+    O_SYM,
     O_STR,
     O_NUM,
     O_CONS,
@@ -20,7 +20,8 @@ enum obj_type {
     O_KEYWORD,
     O_MACRO,
     O_FN_COMPILED,
-    O_MACRO_COMPILED
+    O_MACRO_COMPILED,
+    O_STACKOFFSET
 };
 
 void object_set_name(object *o, char *name);
@@ -29,6 +30,7 @@ void object_set_name(object *o, char *name);
 object *new_object(enum obj_type t, void *o);
 object *new_object_cons(object *car, object *cdr);
 object *new_object_long(long l);
+object *new_object_stackoffset(long l);
 object *new_object_fn(object *args, object *body);
 object *new_object_fn_compiled(compiled_chunk *cc);
 object *new_object_macro(object *args, object *body);
@@ -39,6 +41,7 @@ string *oval_symbol(object *o);
 string *oval_keyword(object *o);
 string *oval_string(object *o);
 long oval_long(object *o);
+long oval_stackoffset(object *o);
 void (*oval_native(object *o))(void *, long);
 object *oval_fn_args(object *o); // Also for getting macro args
 object *oval_fn_body(object *o); // Also for getting macro body

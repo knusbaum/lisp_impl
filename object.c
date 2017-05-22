@@ -62,6 +62,7 @@ object *new_object(enum obj_type t, void *o) {
     case O_STR:
         ob->str = o;
         break;
+    case O_STACKOFFSET:
     case O_NUM:
         printf("Cannot assign a num with this function.\n");
         abort();
@@ -94,6 +95,13 @@ object *new_object_cons(object *car, object *cdr) {
 object *new_object_long(long l) {
     object *ob = malloc(sizeof (object));
     ob->type = O_NUM;
+    ob->num = l;
+    return ob;
+}
+
+object *new_object_stackoffset(long l) {
+    object *ob = malloc(sizeof (object));
+    ob->type = O_STACKOFFSET;
     ob->num = l;
     return ob;
 }
@@ -182,6 +190,16 @@ long oval_long(object *o) {
     return o->num;
 }
 
+long oval_stackoffset(object *o) {
+    if(o->type != O_STACKOFFSET) {
+        printf("Expected stackoffset, but have: ");
+        print_object(o);
+        printf("\n");
+        abort();
+    }
+    return o->num;
+}
+
 void (*oval_native(object *o))(void *, long) {
     if(o->type != O_FN_NATIVE) {
         printf("Expected number, but have: ");
@@ -222,6 +240,7 @@ object *ocar(object *o) {
         printf("Expected CONS cell, but have: ");
         print_object(o);
         printf("\n");
+        abort();
     }
     return car(o->c);
 }
@@ -234,6 +253,7 @@ object *ocdr(object *o) {
         printf("Expected CONS cell, but have: ");
         print_object(o);
         printf("\n");
+        abort();
     }
     return cdr(o->c);
 }
@@ -243,6 +263,7 @@ object *osetcar(object *o, object *car) {
         printf("Expected CONS cell, but have: ");
         print_object(o);
         printf("\n");
+        abort();
     }
     setcar(o->c, car);
     return car;
@@ -253,6 +274,7 @@ object *osetcdr(object *o, object *cdr) {
         printf("Expected CONS cell, but have: ");
         print_object(o);
         printf("\n");
+        abort();
     }
     setcdr(o->c, cdr);
     return cdr;
@@ -290,6 +312,9 @@ static void print_cdr(object *o) {
         break;
     case O_MACRO_COMPILED:
         printf(" . #<COMPILED MACRO @ %p>", o);
+        break;
+    case O_STACKOFFSET:
+        printf(" . #<STACK_OFFSET: %ld>", o->num);
         break;
     }
 }
@@ -341,6 +366,9 @@ void print_object(object *o) {
         break;
     case O_MACRO_COMPILED:
         printf("#<COMPILED MACRO @ %p>", o);
+        break;
+    case O_STACKOFFSET:
+        printf("#<STACK_OFFSET: %ld>", o->num);
         break;
     }
 }

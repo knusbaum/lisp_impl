@@ -1,4 +1,4 @@
-(defmacro cond (&rest args)
+(defmacro cond (args)
   (let ((cond-pair (car args))
         (rest (cdr args)))
     (let ((a (car cond-pair))

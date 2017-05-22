@@ -25,6 +25,7 @@ typedef struct compiled_chunk {
     char *name;
     long variance;
     unsigned char flags;
+    long stacklevel;
 } compiled_chunk;
 
 

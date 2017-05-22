@@ -82,6 +82,18 @@ void add_binstr_str(compiled_chunk *c, void *instr, char *str) {
     c->b_off++;
 }
 
+void add_binstr_offset(compiled_chunk *c, void *instr, size_t offset) {
+    if(c->b_off == c->bsize) {
+        c->bsize *= 2;
+        c->bs = realloc(c->bs, sizeof (struct binstr) * c->bsize);
+    }
+
+    struct binstr *target = c->bs + c->b_off;
+    target->instr = instr;
+    target->offset=offset;
+    c->b_off++;
+}
+
 void free_compiled_chunk(compiled_chunk *c) {
     free(c->bs);
     map_destroy(c->labels);
@@ -89,60 +101,100 @@ void free_compiled_chunk(compiled_chunk *c) {
 }
 
 void bs_push(compiled_chunk *cc, object *o) {
-    //printf("%ld@%p bs_push: ", cc->b_off, cc);
-    //print_object(o);
-    //printf("\n");
+    printf("%ld@%p bs_push: ", cc->b_off, cc);
+    print_object(o);
+    printf("\n");
+    //if(o == vm_s_if) {
+    //    abort();
+    //}
     add_binstr_arg(cc, map_get(addrs, "push"), o);
+    cc->stacklevel++;
+    printf("\t Adding 1 to stacklevel. (%ld)\n", cc->stacklevel);
 }
 
 void bs_pop(compiled_chunk *cc) {
-    //printf("%ld@%p bs_pop\n", cc->b_off, cc);
+    printf("%ld@%p bs_pop\n", cc->b_off, cc);
     add_binstr_arg(cc, map_get(addrs, "pop"), NULL);
+    cc->stacklevel--;
+    printf("\t Subtracting 1 from stacklevel. (%ld)\n", cc->stacklevel);
 }
 
 void bs_push_context(compiled_chunk *cc) {
-    //printf("%ld@%p bs_push_context\n", cc->b_off, cc);
+    printf("%ld@%p bs_push_context\n", cc->b_off, cc);
     add_binstr_arg(cc, map_get(addrs, "push_lex_context"), NULL);
+    
 }
 
 void bs_pop_context(compiled_chunk *cc) {
-    //printf("%ld@%p bs_pop_context\n", cc->b_off, cc);
+    printf("%ld@%p bs_pop_context\n", cc->b_off, cc);
     add_binstr_arg(cc, map_get(addrs, "pop_lex_context"), NULL);
 }
 
-void bs_bind(compiled_chunk *cc) {
-    //printf("%ld@%p bs_bind\n", cc->b_off, cc);
-    add_binstr_arg(cc, map_get(addrs, "bind"), NULL);
+void bs_bind(compiled_chunk *cc, context *c, object *sym) {
+    object *stackoffsetobj = new_object_stackoffset(cc->stacklevel);
+    printf("%ld@%p bs_bind %s to stacklevel %ld: (%p)\n", cc->b_off, cc, string_ptr(oval_symbol(sym)), cc->stacklevel, stackoffsetobj);
+    //add_binstr_arg(cc, map_get(addrs, "bind"), NULL);
+    bind_var(c, sym, stackoffsetobj);
 }
 
-void bs_resolve(compiled_chunk *cc) {
-    //printf("%ld@%p bs_resolve_context\n", cc->b_off, cc);
-    add_binstr_arg(cc, map_get(addrs, "resolve_sym"), NULL);
+void bs_push_from_stack(compiled_chunk *cc, size_t offset) {
+    printf("%ld@%p push_from_stack: %ld\n", cc->b_off, cc, offset);
+    add_binstr_offset(cc, map_get(addrs, "push_from_stack"), offset);
+    cc->stacklevel++;
+    printf("\t Adding 1 to stacklevel (%ld).\n", cc->stacklevel);
+}
+
+void bs_resolve(compiled_chunk *cc, context *c, object *sym) {
+    printf("%ld@%p bs_resolve: resolving: %s\n", cc->b_off, cc, string_ptr(oval_symbol(sym)));
+    //
+    object *var_stacklevel = lookup_var(c, sym);
+    if(!var_stacklevel) {
+        printf("Cannot resolve sym: ");
+        print_object(sym);
+        printf("\n");
+        abort();
+    }
+    if(otype(var_stacklevel) == O_STACKOFFSET) {
+        printf("Resolving to: %ld, %ld from top of stack (%ld): (%p)\n", oval_stackoffset(var_stacklevel), cc->stacklevel - oval_stackoffset(var_stacklevel), cc->stacklevel, var_stacklevel);
+        bs_push_from_stack(cc, cc->stacklevel - oval_stackoffset(var_stacklevel));
+    }
+    else {
+        printf("(%p) Type of sym: %d\n", var_stacklevel, otype(var_stacklevel));
+        printf("Value: ");
+        print_object(var_stacklevel);
+        printf("\n");
+        bs_push(cc, sym);
+        add_binstr_arg(cc, map_get(addrs, "resolve_sym"), NULL);
+    }
 }
 
 void bs_call(compiled_chunk *cc, long variance) {
-    //printf("%ld@%p bs_call (%ld)\n", cc->b_off, cc, variance);
+    printf("%ld@%p bs_call (%ld)\n", cc->b_off, cc, variance);
     add_binstr_variance(cc, map_get(addrs, "call"), variance);
+    cc->stacklevel -= (variance); // num args + function - return val
+    printf("\t Subtracting %ld from stacklevel. (%ld)\n", variance, cc->stacklevel);
 }
 
 void bs_exit(compiled_chunk *cc) {
-    //printf("%ld@%p bs_exit\n", cc->b_off, cc);
+    printf("%ld@%p bs_exit\n", cc->b_off, cc);
     add_binstr_arg(cc, map_get(addrs, "exit"), NULL);
 }
 
 void bs_label(compiled_chunk *cc, char *label) {
-    //printf("%ld@%p bs_label: %s\n", cc->b_off, cc, label);
+    printf("%ld@%p bs_label: %s\n", cc->b_off, cc, label);
     map_put(cc->labels, label, (void *)cc->b_off);
 }
 
 void bs_go(compiled_chunk *cc, char *label) {
-    //printf("%ld@%p bs_go: %s\n", cc->b_off, cc, label);
+    printf("%ld@%p bs_go: %s\n", cc->b_off, cc, label);
     add_binstr_str(cc, map_get(addrs, "go"), label);
 }
 
 void bs_go_if_nil(compiled_chunk *cc, char *label) {
-    //printf("%ld@%p bs_go_if_nil: %s\n", cc->b_off, cc, label);
+    printf("%ld@%p bs_go_if_nil: %s\n", cc->b_off, cc, label);
     add_binstr_str(cc, map_get(addrs, "go_if_nil"), label);
+    cc->stacklevel--;
+    printf("\t Subtracting 1 from stacklevel. (%ld)\n", cc->stacklevel);    
 }
 
 // Reverse the bind order and handle variadic calls
@@ -160,8 +212,10 @@ long fn_bind_params(compiled_chunk *cc, context *c, object *curr, long variance)
             printf("Must supply a symbol to bind for &REST.\n");
             abort();
         }
-        bs_push(cc, param);
-        bs_bind(cc);
+        //bs_push(cc, param);
+        bs_bind(cc, c, param);
+//        printf("Binding %p to %ld in %p\n", param, variance, c);
+//        bind_var(c, param, new_object_long(variance));
         curr = ocdr(curr);
         if(curr != obj_nil()) {
             printf("Expected end of list, but have: ");
@@ -172,22 +226,35 @@ long fn_bind_params(compiled_chunk *cc, context *c, object *curr, long variance)
         return variance;
     }
 
+    //bs_push(cc, param);
+
+    bs_bind(cc, c, param);
+    cc->stacklevel++;
+    printf("\t Adding 1 to stacklevel. (%ld)\n", cc->stacklevel);
+    //printf("Binding %p to %ld in %p\n", param, variance, c);
+    //bind_var(c, param, new_object_long(variance)); //(void *)variance);
     variance = fn_bind_params(cc, c, ocdr(curr), variance);
+
+    
+
+    
+
+
     variance++;
-    bs_push(cc, param);
-    bs_bind(cc);
 
     return variance;
 }
 
 void fn_call(compiled_chunk *cc, context *c, object *fn) {
     bs_push_context(cc);
-
+    c = push_context(c); // pushing context for var binding.
     object *fargs = oval_fn_args(fn);
     object *fbody = oval_fn_body(fn);
 
     cc->variance = fn_bind_params(cc, c, fargs, 0);
-
+    cc->stacklevel--; //= cc->variance;
+    
+    printf("Compiling body.\n"); 
     object *ret = obj_nil();
     bs_push(cc, ret);
     for(; fbody != obj_nil(); fbody = ocdr(fbody)) {
@@ -195,6 +262,11 @@ void fn_call(compiled_chunk *cc, context *c, object *fn) {
         object *form = ocar(fbody);
         compile_bytecode(cc, c, form);
     }
+    printf("END Compiling body.\n");
+//    for(int i = 0; i < cc->variance; i++) {
+//        bs_pop(cc);
+//    }
+    c = pop_context(c);
     bs_pop_context(cc);
 }
 
@@ -229,8 +301,8 @@ static void vm_let(compiled_chunk *cc, context *c, object *o) {
         object *assign = ocar(frm);
         object *sym = ocar(assign);
         compile_bytecode(cc, c, ocar(ocdr(assign)));
-        bs_push(cc, sym);
-        bs_bind(cc);
+        //bs_push(cc, sym);
+        bs_bind(cc, c, sym);
     }
     for(object *body = ocdr(ocdr(o)); body != obj_nil(); body = ocdr(body)) {
         compile_bytecode(cc, c, ocar(body));
@@ -404,6 +476,7 @@ static void compile_cons(compiled_chunk *cc, context *c, object *o) {
             bs_call(cc, num_args);
         }
         else {
+            printf("Compiling function call.\n");
             int num_args = 0;
             for(object *curr = ocdr(o); curr != obj_nil(); curr = ocdr(curr)) {
                 num_args++;
@@ -417,13 +490,26 @@ static void compile_cons(compiled_chunk *cc, context *c, object *o) {
 }
 
 void compile_bytecode(compiled_chunk *cc, context *c, object *o) {
+    //object *stack_offset;
     switch(otype(o)) {
     case O_CONS:
         compile_cons(cc, c, o);
         break;
     case O_SYM:
-        bs_push(cc, o);
-        bs_resolve(cc);
+        //bs_push(cc, o);
+        bs_resolve(cc, c, o);
+//        stack_offset = lookup_var(c, o);
+//        printf("Looking up %p in %p: ", o, c);
+//        print_object(stack_offset);
+//        printf("\n");
+//        
+//        if(!stack_offset || stack_offset == obj_nil() || otype(stack_offset) != O_NUM) {
+//            bs_push(cc, o);
+//            bs_resolve(cc);
+//        }
+//        else {
+//            bs_push_from_stack(cc, oval_long(stack_offset));
+//        }
         break;
     case O_STR:
         bs_push(cc, o);
@@ -455,20 +541,23 @@ object *expand_macros_rec(compiled_chunk *cc, context *c, object *o, size_t rec)
         object *func = lookup_fn(c, fsym);
         if(func && otype(func) == O_MACRO_COMPILED) {
             // Don't eval the arguments.
-//            printf("Expanding: ");
-//            print_object(o);
-//            printf("\n");
+            printf("Expanding: ");
+            print_object(o);
+            printf("\n");
             int num_args = 0;
             for(object *margs = ocdr(o); margs != obj_nil(); margs = ocdr(margs)) {
+                printf("Pushing: ");
+                print_object(ocar(margs));
+                printf("\n");
                 push(ocar(margs));
                 num_args++;
             }
 
             run_vm(c, oval_fn_compiled(func));
             object *exp = pop();
-//            printf("Expanded: ");
-//            print_object(exp);
-//            printf("\n");
+            printf("Expanded: ");
+            print_object(exp);
+            printf("\n");
             exp = expand_macros_rec(cc, c, exp, rec);
             return exp;
         }
@@ -490,7 +579,7 @@ object *expand_macros(compiled_chunk *cc, context *c, object *o) {
 
 compiled_chunk *compile_form(context *c, object *o) {
     compiled_chunk *cc = new_compiled_chunk();
-
+    
     o = expand_macros(cc, c, o);
     printf("Expanded: ");
     print_object(o);
