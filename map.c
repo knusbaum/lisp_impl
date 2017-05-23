@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include "map.h"
 
@@ -70,4 +71,51 @@ void map_destroy(map_t *m) {
     free(m->keys);
     free(m->vals);
     free(m);
+}
+
+struct map_iterator {
+    map_t *map;
+    size_t offset;
+};
+
+map_iterator *iterate_map(map_t *m) {
+//    printf("Iterating map: %p (%ld entries)\n", m, m->count);
+//    for(size_t i = 0; i < m->count; i++) {
+//        printf("Have key: (%p)\n", m->vals[i]);
+//    }
+    if(m->count == 0) {
+        return NULL;
+    }
+    map_iterator *it = malloc(sizeof (struct map_iterator));
+    it->map = m;
+    it->offset = 0;
+    return it;
+}
+
+map_iterator *map_iterator_next(map_iterator *mi) {
+    mi->offset++;
+    if(mi->offset == mi->map->count) {
+        mi->map = NULL;
+        return NULL;
+    }
+    return mi;
+}
+
+struct map_pair map_iterator_values(map_iterator *mi) {
+    struct map_pair mp;
+    if(!mi->map) {
+        printf("Invalid iterator.\n");
+        abort();
+    }
+    mp.key = mi->map->keys[mi->offset];
+    mp.val = mi->map->vals[mi->offset];
+//    printf("MAP Found binding from: ");
+//    printf("(%p) to: ", mp.key);
+//    printf("(%p)\n", mp.val);
+    return mp;
+}
+
+void destroy_map_iterator(map_iterator *mi) {
+    printf("Freeing map at: %p\n", mi);
+    free(mi);
 }

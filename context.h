@@ -5,16 +5,33 @@
 #include "parser.h"
 #include "object.h"
 
+typedef struct context_stack context_stack;
 typedef struct context context;
+typedef struct context_var_iterator context_var_iterator;
 
-context *new_context();
-context *push_context(context *curr);
-context *pop_context(context *curr);
+struct sym_val_pair {
+    object *sym;
+    object *val;
+};
+
+context_stack *context_stack_init();
+void *destroy_context_stack(context_stack *cs);
+
+//context *new_context();
+context *top_context(context_stack *cs);
+context *push_context(context_stack *cs);
+context *push_existing_context(context_stack *cs, context *existing);
+context *pop_context(context_stack *cs);
 void free_context(context *c);
-object *lookup_var(context *c, object *sym);
-object *bind_var(context *c, object *sym, object *var);
-object *lookup_fn(context *c, object *sym);
-void bind_native_fn(context *c, object *sym, void (*fn)(context *, long));
-void bind_fn(context *c, object *sym, object *fn);
+object *lookup_var(context_stack *cs, object *sym);
+object *bind_var(context_stack *cs, object *sym, object *var);
+object *lookup_fn(context_stack *cs, object *sym);
+void bind_native_fn(context_stack *cs, object *sym, void (*fn)(context_stack *, long));
+void bind_fn(context_stack *cs, object *sym, object *fn);
+
+context_var_iterator *iterate_vars(context_stack *cs);
+context_var_iterator *context_var_iterator_next(context_var_iterator *cvi);
+struct sym_val_pair context_var_iterator_values(context_var_iterator *cvi);
+void destroy_context_var_iterator(context_var_iterator *cvi);
 
 #endif

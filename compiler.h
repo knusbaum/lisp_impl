@@ -26,10 +26,13 @@ typedef struct compiled_chunk {
     long variance;
     unsigned char flags;
     long stacklevel;
+    context *c;
 } compiled_chunk;
 
 
 void compiler_init();
-compiled_chunk *compile_form(context *c, object *o);
+compiled_chunk *compile_form(context_stack *cs, object *o);
+compiled_chunk *new_compiled_chunk();
+void compile_fn(compiled_chunk *fn_cc, context_stack *cs, object *fn);
 
 #endif
