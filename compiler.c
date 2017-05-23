@@ -172,6 +172,9 @@ void bs_resolve(compiled_chunk *cc, context_stack *cs, object *sym) {
         printf("Resolving to: %ld, %ld from top of stack (%ld): (%p)\n", oval_stackoffset(var_stacklevel), cc->stacklevel - oval_stackoffset(var_stacklevel), cc->stacklevel, var_stacklevel);
         bs_push_from_stack(cc, cc->stacklevel - oval_stackoffset(var_stacklevel));
     }
+    else if(map_get(special_syms, sym) != NULL) {
+        bs_push(cc, sym);
+    }
     else {
         bs_push(cc, sym);
         printf("%ld@%p bs_resolve: resolving: %s\n", cc->b_off, cc, string_ptr(oval_symbol(sym)));

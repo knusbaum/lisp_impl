@@ -6,6 +6,7 @@
 #include "map.h"
 
 extern map_t *addrs;
+extern map_t *special_syms;
 
 void vm_init(context_stack *cs);
 

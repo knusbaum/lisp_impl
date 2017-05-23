@@ -14,6 +14,8 @@ static int str_eq(void *s1, void *s2) {
 map_t *addrs;
 map_t *get_vm_addrs();
 
+map_t *special_syms;
+
 #define INIT_STACK 4096
 object **stack;
 size_t s_off;
@@ -66,6 +68,9 @@ void vm_init(context_stack *cs) {
     bind_native_fn(cs, interns("MACROEXPAND"), vm_macroexpand);
 
     addrs = get_vm_addrs();
+    special_syms = map_create(sym_equal);
+    map_put(special_syms, obj_t(), (void *)1);
+    map_put(special_syms, obj_nil(), (void *)1);
 }
 
 static inline void __push(object *o) {
@@ -485,7 +490,7 @@ void vm_read(context_stack *cs, long variance) {
     }
     else {
         printf("Stream was closed.\n");
-        abort();
+        exit(0);
     }
 }
 

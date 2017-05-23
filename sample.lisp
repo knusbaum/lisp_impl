@@ -10,8 +10,7 @@
                 nil)))))
 
 (fn fib (x)
-    (cond ((= x 1) 1)
-          ((= x 2) 1)
+    (cond ((< x 3) 1)
           (t (+ (fib (- x 1))
                 (fib (- x 2))))))
 
@@ -26,3 +25,5 @@
              (and ,@rest)
              nil)
         first)))
+
+(fib 30)

@@ -16,7 +16,6 @@ int main(void) {
     while(1) {
         printf("\n> ");
         run_vm(cs, cc);
-        pop();
     }
 
     printf("Shutting down.\n");

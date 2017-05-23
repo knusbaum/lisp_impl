@@ -14,6 +14,8 @@ struct sym_val_pair {
     object *val;
 };
 
+int sym_equal(void *a, void *b);
+
 context_stack *context_stack_init();
 void *destroy_context_stack(context_stack *cs);
 
