@@ -168,7 +168,7 @@ void gc(context_stack *cs) {
         case O_FN_COMPILED:
             printf("O FN IS: ");
             print_object(grey);
-            printf("\n");
+            printf(" (%p)\n", grey);
             cc = oval_fn_compiled(grey);
             for(i = 0; i < cc->b_off; i++) {
                 if(cc->bs[i].has_arg && cc->bs[i].arg) {
@@ -225,12 +225,20 @@ void gc(context_stack *cs) {
 //            printf(" (%p)\n", olist[i]);
 //        }
 //    }
+    object **new_olist = malloc(o_size * sizeof (object *));
+    size_t new_olist_off = 0;
     for(size_t i = 0; i < o_off; i++) {
         if(gc_flag(olist[i]) == GC_FLAG_WHITE) {
             destroy_object(olist[i]);
         }
+        else {
+            new_olist[new_olist_off++] = olist[i];
+        }
     }
-    o_off = 0;
+    
+    o_off = new_olist_off;
+    free(olist);
+    olist = new_olist;
 
     free(grey_queue);
     gq_off = 0;

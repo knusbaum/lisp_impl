@@ -475,6 +475,7 @@ void destroy_object(object *o) {
         break;
     case O_FN_COMPILED:
     case O_MACRO_COMPILED:
+        //printf("\n\n!!!!!!!!!!!!!!!!!!!!!!!!Freeing compiled function!!!!!!!!!!!!!!!!\n\n");
         free_compiled_chunk(o->cc);
         break;
     }
