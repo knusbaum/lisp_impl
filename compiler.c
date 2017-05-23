@@ -708,9 +708,7 @@ object *expand_macros(compiled_chunk *cc, context_stack *cs, object *o) {
     return expand_macros_rec(cc, cs, o, 0);
 }
 
-compiled_chunk *compile_form(context_stack *cs, object *o) {
-    compiled_chunk *cc = new_compiled_chunk();
-
+compiled_chunk *compile_form(compiled_chunk *cc, context_stack *cs, object *o) {
     o = expand_macros(cc, cs, o);
     printf("Expanded: ");
     print_object(o);

@@ -387,8 +387,9 @@ void vm_eval(context_stack *cs, long variance) {
         printf("Expected exactly 1 argument, but got %ld.\n", variance);
         abort();
     }
+    compiled_chunk *cc = new_compiled_chunk();
     object *o = __pop();
-    compiled_chunk *cc = compile_form(cs, o);
+    compile_form(cc, cs, o);
     run_vm(cs, cc);
     free_compiled_chunk(cc);
 }
