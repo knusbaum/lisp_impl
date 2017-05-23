@@ -3,6 +3,7 @@
 
 #include <stdarg.h>
 #include "lstring.h"
+#include "map.h"
 
 typedef struct object object;
 
@@ -59,9 +60,15 @@ void print_object(object *o);
 /** Symbol Operations **/
 object *interns(char *symname);
 object *intern(string *symname);
+map_t *get_interned();
 
 /** Important Objects **/
 object *obj_nil();
 object *obj_t();
+
+char gc_flag(object *o);
+void set_gc_flag(object *o, char f);
+
+void destroy_object(object *o);
 
 #endif

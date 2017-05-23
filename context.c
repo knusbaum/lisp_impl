@@ -84,6 +84,7 @@ context *push_context(context_stack *cs) {
 }
 
 context *push_existing_context(context_stack *cs, context *existing) {
+    //printf("-------------------Pushing context: %p\n", existing);
     cs->cstackoff++;
     if(cs->cstackoff == cs->cstacksize) {
         cs->cstacksize *= 2;
@@ -94,8 +95,10 @@ context *push_existing_context(context_stack *cs, context *existing) {
 }
 
 context *pop_context(context_stack *cs) {
+    context *c = cs->cstack[cs->cstackoff];
     cs->cstackoff--;
-    return cs->cstack[cs->cstackoff];
+    //printf("-------------------Popping context: %p\n", c);
+    return c;
 }
 
 void free_context(context *c) {
@@ -165,4 +168,53 @@ void destroy_context_var_iterator(context_var_iterator *cvi) {
         destroy_map_iterator(cvi->var_mi);
     }
     free(cvi);
+}
+
+struct context_fn_iterator {
+    map_iterator *fn_mi;
+};
+
+context_fn_iterator *iterate_fns(context_stack *cs) {
+    context_fn_iterator *cfi = malloc(sizeof (struct context_fn_iterator));
+    cfi->fn_mi = iterate_map(cs->cstack[0]->funcs);
+    while(cfi->fn_mi == NULL) {
+        free(cfi);
+        return NULL;
+    }
+    return cfi;
+}
+
+context_fn_iterator *context_fn_iterator_next(context_fn_iterator *cfi) {
+    map_iterator *next = map_iterator_next(cfi->fn_mi);
+    if(!next) {
+        destroy_map_iterator(cfi->fn_mi);
+        cfi->fn_mi = NULL;
+        return NULL;
+    }
+    cfi->fn_mi = next;
+    return cfi;
+}
+
+struct sym_val_pair context_fn_iterator_values(context_fn_iterator *cfi) {
+    struct sym_val_pair svp;
+    struct map_pair mp = map_iterator_values(cfi->fn_mi);
+       
+    svp.sym = mp.key;
+    svp.val = mp.val;
+    return svp;
+}
+
+void destroy_context_fn_iterator(context_fn_iterator *cfi) {
+    if(cfi->fn_mi) {
+        destroy_map_iterator(cfi->fn_mi);
+    }
+    free(cfi);    
+}
+
+map_t *context_vars(context *c) {
+    return c->vars;
+}
+
+map_t *context_funcs(context *c) {
+    return c->funcs;
 }

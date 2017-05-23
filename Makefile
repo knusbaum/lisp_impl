@@ -1,4 +1,4 @@
-CFLAGS=-ggdb -O2 -pg -Wall -Wextra -Werror
+CFLAGS=-ggdb -O0 -Wall -Wextra -Werror
 EXECUTABLE=lisp
 
 OBJECTS=main.o \
@@ -9,7 +9,8 @@ OBJECTS=main.o \
 		object.o \
 		lstring.o \
 		threaded_vm.o \
-		compiler.o
+		compiler.o \
+		gc.o
 
 all: lisp
 

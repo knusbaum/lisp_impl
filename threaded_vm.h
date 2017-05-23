@@ -21,4 +21,7 @@ object *pop();
 void dump_stack();
 void call(context_stack *c, long variance);
 
+object **get_stack();
+size_t get_stack_off();
+
 #endif

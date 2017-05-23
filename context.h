@@ -4,10 +4,12 @@
 #include "lexer.h"
 #include "parser.h"
 #include "object.h"
+#include "map.h"
 
 typedef struct context_stack context_stack;
 typedef struct context context;
 typedef struct context_var_iterator context_var_iterator;
+typedef struct context_fn_iterator context_fn_iterator;
 
 struct sym_val_pair {
     object *sym;
@@ -35,5 +37,13 @@ context_var_iterator *iterate_vars(context_stack *cs);
 context_var_iterator *context_var_iterator_next(context_var_iterator *cvi);
 struct sym_val_pair context_var_iterator_values(context_var_iterator *cvi);
 void destroy_context_var_iterator(context_var_iterator *cvi);
+
+context_fn_iterator *iterate_fns(context_stack *cs);
+context_fn_iterator *context_fn_iterator_next(context_fn_iterator *cfi);
+struct sym_val_pair context_fn_iterator_values(context_fn_iterator *cfi);
+void destroy_context_fn_iterator(context_fn_iterator *cfi);
+
+map_t *context_vars(context *c);
+map_t *context_funcs(context *c);
 
 #endif

@@ -26,4 +26,4 @@
              nil)
         first)))
 
-(fib 30)
+(fib 40)

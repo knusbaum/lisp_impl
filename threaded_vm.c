@@ -21,6 +21,14 @@ object **stack;
 size_t s_off;
 size_t stack_size;
 
+object **get_stack() {
+    return stack;
+}
+
+size_t get_stack_off() {
+    return s_off;
+}
+
 static inline void vm_mult(context_stack *cs, long variance);
 static inline void vm_div(context_stack *cs, long variance);
 void vm_num_eq(context_stack *cs, long variance);
@@ -146,7 +154,7 @@ void vm_num_gt(context_stack *cs, long variance) {
         abort();
     }
     // args are reversed.
-    if(oval_long(__pop()) <= oval_long(__pop())) {
+    if(oval_long(__pop()) < oval_long(__pop())) {
         __push(obj_t());
     }
     else {
@@ -161,7 +169,7 @@ void vm_num_lt(context_stack *cs, long variance) {
         abort();
     }
     // args are reversed.
-    if(oval_long(__pop()) >= oval_long(__pop())) {
+    if(oval_long(__pop()) > oval_long(__pop())) {
         __push(obj_t());
     }
     else {
@@ -290,7 +298,7 @@ void vm_compile_fn(context_stack *cs, long variance) {
     compiled_chunk *fn_cc = new_compiled_chunk();
     fn_cc->c = top_context(cs);
     object *fn = new_object_fn_compiled(fn_cc);
-    printf("Compiling fn %s into cc: %p\n", string_ptr(oval_symbol(fname)), fn_cc);
+    printf("Compiling fn %s into cc: %p with context: %p\n", string_ptr(oval_symbol(fname)), fn_cc, fn_cc->c);
     bind_fn(cs, fname, fn);
     compile_fn(fn_cc, cs, uncompiled_fn);
 }
@@ -595,11 +603,12 @@ bind_fn:
     bind_fn(cs, sym, val);
     NEXTI;
 push_lex_context:
-    //printf("%ld@%p PUSH_LEX_CONTEXT\n", bs - cc->bs, cc);
+    printf("\n\n!!!!!!!!!!!!!!%ld@%p PUSH_LEX_CONTEXT %p\n", bs - cc->bs, cc, top_context(cs));
     push_context(cs);
     NEXTI;
 pop_lex_context:
-    //printf("%ld@%p POP_LEX_CONTEXT\n", bs - cc->bs, cc);
+    printf("\n\n!!!!!!!!!!!!!!%ld@%p POP_LEX_CONTEXT: %p\n", bs - cc->bs, cc, top_context(cs));
+    //free_context(pop_context(cs));
     pop_context(cs);
     NEXTI;
 go:

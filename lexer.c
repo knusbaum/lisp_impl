@@ -108,7 +108,9 @@ long parse_long() {
         string_append(s, look());
         get_char();
     }
-    return strtol(string_ptr(s), NULL, 0);
+    long ret = strtol(string_ptr(s), NULL, 0);
+    string_free(s);
+    return ret;
 }
 
 void next_token(struct token *t) {

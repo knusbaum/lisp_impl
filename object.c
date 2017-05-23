@@ -3,6 +3,7 @@
 #include "object.h"
 #include "compiler.h"
 #include "map.h"
+#include "gc.h"
 
 typedef struct cons cons;
 struct cons {
@@ -34,6 +35,7 @@ cons *new_cons() {
 }
 
 struct object {
+    char gcflag;
     enum obj_type type;
     union {
         string *str;
@@ -45,6 +47,14 @@ struct object {
     char *name;
 };
 
+char gc_flag(object *o) {
+    return o->gcflag;
+}
+
+void set_gc_flag(object *o, char f) {
+    o->gcflag = f;
+}
+
 void object_set_name(object *o, char *name) {
     o->name = name;
 }
@@ -55,7 +65,10 @@ char *object_get_name(object *o) {
 
 object *new_object(enum obj_type t, void *o) {
     object *ob = malloc(sizeof (object));
+    ob->gcflag = GC_FLAG_BLACK;
+    add_object_to_gclist(ob);
     ob->type = t;
+    ob->name = NULL;
     switch(t) {
     case O_KEYWORD:
     case O_SYM:
@@ -94,15 +107,21 @@ object *new_object_cons(object *car, object *cdr) {
 
 object *new_object_long(long l) {
     object *ob = malloc(sizeof (object));
+    ob->gcflag = GC_FLAG_BLACK;
+    add_object_to_gclist(ob);
     ob->type = O_NUM;
     ob->num = l;
+    ob->name = NULL;
     return ob;
 }
 
 object *new_object_stackoffset(long l) {
     object *ob = malloc(sizeof (object));
+    ob->gcflag = GC_FLAG_BLACK;
+    add_object_to_gclist(ob);
     ob->type = O_STACKOFFSET;
     ob->num = l;
+    ob->name = NULL;
     return ob;
 }
 
@@ -351,7 +370,10 @@ static void print_list(cons *c) {
 }
 
 void print_object(object *o) {
-    if(!o) return;
+    if(!o) {
+        printf("[[NULL]]");
+        return;
+    }
     switch(otype(o)) {
     case O_KEYWORD:
     case O_SYM:
@@ -388,6 +410,10 @@ void print_object(object *o) {
 }
 
 map_t *symbols;
+
+map_t *get_interned() {
+    return symbols;
+}
 
 object *interns(char *symname) {
     return intern(new_string_copy(symname));
@@ -429,4 +455,28 @@ object *obj_t() {
         otrue = interns("T");
     }
     return otrue;
+}
+
+void destroy_object(object *o) {
+    switch(o->type) {
+    case O_SYM:
+    case O_STR:
+    case O_KEYWORD:
+        string_free(o->str);
+        break;
+    case O_NUM:
+    case O_FN_NATIVE:
+    case O_STACKOFFSET:
+        break;
+    case O_CONS:
+    case O_FN:
+    case O_MACRO:
+        free(o->c);
+        break;
+    case O_FN_COMPILED:
+    case O_MACRO_COMPILED:
+        free_compiled_chunk(o->cc);
+        break;
+    }
+    free(o);
 }

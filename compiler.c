@@ -2,6 +2,7 @@
 #include <string.h>
 #include "compiler.h"
 #include "threaded_vm.h"
+#include "map.h"
 
 /** VM **/
 
@@ -15,8 +16,13 @@ object *vm_s_if;
 object *vm_s_defmacro;
 object *vm_s_for;
 
-unsigned int i;
+map_t *internals;
 
+map_t *get_internals() {
+    return internals;
+}
+
+unsigned int i;
 char *mk_label() {
     char *label = malloc(12); // 10 digits + L + \0
     sprintf(label, "L%u", i++);
@@ -28,7 +34,7 @@ static int str_eq(void *s1, void *s2) {
     return strcmp((char *)s1, (char *)s2) == 0;
 }
 
-void compiler_init() {
+void compiler_init() {    
     vm_s_quote = interns("QUOTE");
     vm_s_backtick = interns("BACKTICK");
     vm_s_comma = interns("COMMA");
@@ -38,6 +44,17 @@ void compiler_init() {
     vm_s_if = interns("IF");
     vm_s_defmacro = interns("DEFMACRO");
     vm_s_for = interns("FOR");
+
+    internals = map_create(sym_equal);
+    map_put(internals, vm_s_quote, vm_s_quote);
+    map_put(internals, vm_s_backtick, vm_s_backtick);
+    map_put(internals, vm_s_comma, vm_s_comma);
+    map_put(internals, vm_s_comma_at, vm_s_comma_at);
+    map_put(internals, vm_s_let, vm_s_let);
+    map_put(internals, vm_s_fn, vm_s_fn);
+    map_put(internals, vm_s_if, vm_s_if);
+    map_put(internals, vm_s_defmacro, vm_s_defmacro);
+    map_put(internals, vm_s_for, vm_s_for);
 }
 
 compiled_chunk *new_compiled_chunk() {
@@ -57,6 +74,7 @@ void add_binstr_arg(compiled_chunk *c, void *instr, object *arg) {
 
     struct binstr *target = c->bs + c->b_off;
     target->instr = instr;
+    target->has_arg=1;    
     target->arg=arg;
     c->b_off++;
 }
@@ -69,6 +87,7 @@ void add_binstr_variance(compiled_chunk *c, void *instr, long variance) {
 
     struct binstr *target = c->bs + c->b_off;
     target->instr = instr;
+    target->has_arg=0;
     target->variance=variance;
     c->b_off++;
 }
@@ -81,6 +100,7 @@ void add_binstr_str(compiled_chunk *c, void *instr, char *str) {
 
     struct binstr *target = c->bs + c->b_off;
     target->instr = instr;
+    target->has_arg=0;
     target->str=str;
     c->b_off++;
 }
@@ -93,6 +113,7 @@ void add_binstr_offset(compiled_chunk *c, void *instr, size_t offset) {
 
     struct binstr *target = c->bs + c->b_off;
     target->instr = instr;
+    target->has_arg=0;
     target->offset=offset;
     c->b_off++;
 }
@@ -273,6 +294,8 @@ long fn_bind_params(compiled_chunk *cc, context_stack *cs, object *curr, long va
 
 void fn_call(compiled_chunk *cc, context_stack *cs, object *fn) {
     push_context(cs); // pushing context for var binding.
+    printf("\n\n!!!!!!!!!!!!PUSHING CONTEXT: %p\n\n", top_context(cs));
+    
     object *fargs = oval_fn_args(fn);
     object *fbody = oval_fn_body(fn);
 
@@ -288,7 +311,10 @@ void fn_call(compiled_chunk *cc, context_stack *cs, object *fn) {
         object *form = ocar(fbody);
         compile_bytecode(cc, cs, form);
     }
-    pop_context(cs);
+    context *c = pop_context(cs);
+    printf("\n\n!!!!!!!!!!!!POPPING CONTEXT: %p\n\n", c);
+    free_context(c);
+    //pop_context(cs);
 }
 
 void compile_fn(compiled_chunk *fn_cc, context_stack *cs, object *fn) {
@@ -350,7 +376,7 @@ static void bind_vars_for_closure(compiled_chunk *cc, context_stack *cs) {
         printf("(%p)\n", svp.val);
         current = context_var_iterator_next(current);
         if(otype(svp.val) == O_STACKOFFSET) {
-            printf("Binding: ");
+            printf("(%p)Binding: ", cs);
             print_object(svp.sym);
             printf("(%p) to: ", svp.sym);
             print_object(svp.val);
