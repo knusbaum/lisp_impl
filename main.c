@@ -8,23 +8,15 @@
 
 int main(void) {
 
-    context_stack *cs =context_stack_init();
-    //push_context(cs);
-//    context *c = new_context();
+    context_stack *cs = context_stack_init();
     vm_init(cs);
     compiler_init();
+
+    compiled_chunk *cc = repl(cs);
     while(1) {
-        printf("> ");
-        object *o = next_form(NULL);
-        if(o) {
-            object *b = vm_eval(cs, o);
-            print_object(b);
-            printf("\n");
-        }
-        else {
-            printf("GOT NULL.\n");
-            break;
-        }
+        printf("\n> ");
+        run_vm(cs, cc);
+        pop();
     }
 
     printf("Shutting down.\n");

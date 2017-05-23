@@ -10,7 +10,6 @@ extern map_t *addrs;
 void vm_init(context_stack *cs);
 
 void compile_bytecode(compiled_chunk *cc, context_stack *cs, object *o);
-object *vm_eval(context_stack *cs, object *o);
 
 map_t *get_vm_addrs();
 void run_vm(context_stack *cs, compiled_chunk *cc);

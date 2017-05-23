@@ -15,3 +15,14 @@
           (t (+ (fib (- x 1))
                 (fib (- x 2))))))
 
+
+
+
+(defmacro and (&rest args)
+  (let ((first (car args))
+        (rest (cdr args)))
+    (if rest
+        `(if ,first
+             (and ,@rest)
+             nil)
+        first)))

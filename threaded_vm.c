@@ -35,6 +35,9 @@ void vm_eq(context_stack *cs, long variance);
 void vm_compile(context_stack *cs, long variance);
 void vm_compile_fn(context_stack *cs, long variance);
 void vm_compile_macro(context_stack *cs, long variance);
+void vm_eval(context_stack *cs, long variance);
+void vm_read(context_stack *cs, long variance);
+void vm_print(context_stack *cs, long variance);
 //void vm_macroexpand(context_stack *cs, long variance);
 
 void vm_init(context_stack *cs) {
@@ -57,6 +60,9 @@ void vm_init(context_stack *cs) {
     bind_native_fn(cs, interns("EQ"), vm_eq);
     bind_native_fn(cs, interns("COMPILE-FN"), vm_compile_fn);
     bind_native_fn(cs, interns("COMPILE-MACRO"), vm_compile_macro);
+    bind_native_fn(cs, interns("EVAL"), vm_eval);
+    bind_native_fn(cs, interns("READ"), vm_read);
+    bind_native_fn(cs, interns("PRINT"), vm_print);
     //bind_native_fn(cs, interns("MACROEXPAND"), vm_macroexpand);
 
     addrs = get_vm_addrs();
@@ -376,16 +382,40 @@ void resolve(context_stack *cs) {
     }
 }
 
-
-object *vm_eval(context_stack *cs, object *o) {
+void vm_eval(context_stack *cs, long variance) {
+    if(variance != 1) {
+        printf("Expected exactly 1 argument, but got %ld.\n", variance);
+        abort();
+    }
+    object *o = __pop();
     compiled_chunk *cc = compile_form(cs, o);
-
     run_vm(cs, cc);
-    printf("AFTER EXECUTION: \n");
-    printf("Dumping stack:\n");
-    dump_stack();
-    printf("Stack length: %ld\n", s_off);
-    return __pop();
+    free_compiled_chunk(cc);
+}
+
+void vm_read(context_stack *cs, long variance) {
+    (void)cs;
+    if(variance != 0) {
+        printf("Expected exactly 0 arguments, but got %ld.\n", variance);
+        abort();
+    }
+    object *o = next_form(NULL);
+    if(o) {
+        __push(o);
+    }
+    else {
+        printf("Stream was closed.\n");
+        abort();
+    }
+}
+
+void vm_print(context_stack *cs, long variance) {
+    (void)cs;
+    if(variance != 1) {
+        printf("Expected exactly 1 argument, but got %ld.\n", variance);
+        abort();
+    }
+    print_object(__pop());
 }
 
 //        dump_stack();

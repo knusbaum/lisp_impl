@@ -721,3 +721,15 @@ compiled_chunk *compile_form(context_stack *cs, object *o) {
 
     return cc;
 }
+
+compiled_chunk *repl(context_stack *cs) {
+    compiled_chunk *cc = new_compiled_chunk();
+    bs_push(cc, lookup_fn(cs, interns("READ")));
+    bs_call(cc, 0);
+    bs_push(cc, lookup_fn(cs, interns("EVAL")));
+    bs_call(cc, 1);
+    bs_push(cc, lookup_fn(cs, interns("PRINT")));
+    bs_call(cc, 1);
+    bs_exit(cc);
+    return cc;
+}
