@@ -38,7 +38,7 @@ void vm_compile_macro(context_stack *cs, long variance);
 void vm_eval(context_stack *cs, long variance);
 void vm_read(context_stack *cs, long variance);
 void vm_print(context_stack *cs, long variance);
-//void vm_macroexpand(context_stack *cs, long variance);
+void vm_macroexpand(context_stack *cs, long variance);
 
 void vm_init(context_stack *cs) {
     stack = malloc(sizeof (object *) * INIT_STACK);
@@ -63,7 +63,7 @@ void vm_init(context_stack *cs) {
     bind_native_fn(cs, interns("EVAL"), vm_eval);
     bind_native_fn(cs, interns("READ"), vm_read);
     bind_native_fn(cs, interns("PRINT"), vm_print);
-    //bind_native_fn(cs, interns("MACROEXPAND"), vm_macroexpand);
+    bind_native_fn(cs, interns("MACROEXPAND"), vm_macroexpand);
 
     addrs = get_vm_addrs();
 }
@@ -382,11 +382,90 @@ void resolve(context_stack *cs) {
     }
 }
 
+
+void vm_macroexpand_rec(context_stack *cs, long rec) {
+    object *o = __pop();
+    if(rec >= 4096) {
+        printf("Cannot expand macro. Nesting too deep.\n");
+        abort();
+    }
+    rec++;
+    if(otype(o) == O_CONS) {
+        object *fsym = ocar(o);
+        object *func = lookup_fn(cs, fsym);
+        if(func && otype(func) == O_MACRO_COMPILED) {
+            // Don't eval the arguments.
+            printf("Expanding: ");
+            print_object(o);
+            printf("\n");
+            long num_args = 0;
+            for(object *margs = ocdr(o); margs != obj_nil(); margs = ocdr(margs)) {
+                printf("Pushing: ");
+                print_object(ocar(margs));
+                printf("\n");
+                push(ocar(margs));
+                num_args++;
+            }
+
+            compiled_chunk *fn_cc = oval_fn_compiled(func);
+            printf("HAVE %ld ARGS AND MACRO VARIANCE IS: %ld\n", num_args, fn_cc->variance);
+            if(num_args > fn_cc->variance) {
+                if(fn_cc->flags & CC_FLAG_HAS_REST) {
+                    printf("PUSHING REST AS LIST!!!\n");
+                    push(lookup_fn(cs, interns("LIST")));
+                    call(cs, num_args - fn_cc->variance);
+                    printf("Dumping stack:\n");
+                    dump_stack();
+                }
+                else {
+                    printf("Expected exactly %ld arguments, but got %ld.\n", fn_cc->variance, num_args);
+                    abort();
+                }
+            }
+
+            run_vm(cs, oval_fn_compiled(func));
+
+            object *exp = pop();
+            for(int i = 0; i < num_args; i++) {
+                pop();
+            }
+            printf("Expanded: ");
+            print_object(exp);
+            printf("\n");
+            push(exp);
+            vm_macroexpand_rec(cs, rec);
+        }
+        else {
+            for(object *margs = o; margs != obj_nil(); margs = ocdr(margs)) {
+                push(ocar(margs));
+                vm_macroexpand_rec(cs, rec);
+                osetcar(margs, pop());
+            }
+            //return o;
+            push(o);
+        }
+    }
+    else {
+        //return o;
+        push(o);
+    }
+}
+
+void vm_macroexpand(context_stack *cs, long variance) {
+    if(variance != 1) {
+        printf("Expected exactly 1 argument, but got %ld.\n", variance);
+        abort();
+    }
+    return vm_macroexpand_rec(cs, 0);
+}
+
 void vm_eval(context_stack *cs, long variance) {
     if(variance != 1) {
         printf("Expected exactly 1 argument, but got %ld.\n", variance);
         abort();
     }
+    push(lookup_fn(cs, interns("MACROEXPAND")));
+    call(cs, 1);
     compiled_chunk *cc = new_compiled_chunk();
     object *o = __pop();
     compile_form(cc, cs, o);

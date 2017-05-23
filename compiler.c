@@ -639,84 +639,9 @@ void compile_bytecode(compiled_chunk *cc, context_stack *cs, object *o) {
     }
 }
 
-
-object *expand_macros_rec(compiled_chunk *cc, context_stack *cs, object *o, size_t rec) {
-    if(rec >= 4096) {
-        printf("Cannot expand macro. Nesting too deep.\n");
-        abort();
-    }
-    rec++;
-    (void)cc;
-    if(otype(o) == O_CONS) {
-        object *fsym = ocar(o);
-        object *func = lookup_fn(cs, fsym);
-        if(func && otype(func) == O_MACRO_COMPILED) {
-            // Don't eval the arguments.
-            printf("Expanding: ");
-            print_object(o);
-            printf("\n");
-            long num_args = 0;
-            for(object *margs = ocdr(o); margs != obj_nil(); margs = ocdr(margs)) {
-                printf("Pushing: ");
-                print_object(ocar(margs));
-                printf("\n");
-                push(ocar(margs));
-                num_args++;
-            }
-
-            compiled_chunk *fn_cc = oval_fn_compiled(func);
-            printf("HAVE %ld ARGS AND MACRO VARIANCE IS: %ld\n", num_args, fn_cc->variance);
-            if(num_args > fn_cc->variance) {
-                if(fn_cc->flags & CC_FLAG_HAS_REST) {
-                    printf("PUSHING REST AS LIST!!!\n");
-                    push(lookup_fn(cs, interns("LIST")));
-                    call(cs, num_args - fn_cc->variance);
-                    printf("Dumping stack:\n");
-                    dump_stack();
-                }
-                else {
-                    printf("Expected exactly %ld arguments, but got %ld.\n", fn_cc->variance, num_args);
-                    abort();
-                }
-            }
-
-            run_vm(cs, oval_fn_compiled(func));
-
-            object *exp = pop();
-            for(int i = 0; i < num_args; i++) {
-                pop();
-            }
-            printf("Expanded: ");
-            print_object(exp);
-            printf("\n");
-            exp = expand_macros_rec(cc, cs, exp, rec);
-            return exp;
-        }
-        else {
-            for(object *margs = o; margs != obj_nil(); margs = ocdr(margs)) {
-                osetcar(margs, expand_macros_rec(cc, cs, ocar(margs), rec));
-            }
-            return o;
-        }
-    }
-    else {
-        return o;
-    }
-}
-
-object *expand_macros(compiled_chunk *cc, context_stack *cs, object *o) {
-    return expand_macros_rec(cc, cs, o, 0);
-}
-
 compiled_chunk *compile_form(compiled_chunk *cc, context_stack *cs, object *o) {
-    o = expand_macros(cc, cs, o);
-    printf("Expanded: ");
-    print_object(o);
-    printf("\n");
-
     compile_bytecode(cc, cs, o);
     bs_exit(cc);
-
     return cc;
 }
 
