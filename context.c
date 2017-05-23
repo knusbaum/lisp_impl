@@ -7,7 +7,6 @@
 struct context {
     map_t *vars;
     map_t *funcs;
-//    context *parent;
 };
 
 #define CSTACK_INITIAL_SIZE 8
@@ -37,12 +36,6 @@ object *lookup_var_off(context_stack *cs, object *sym, size_t off) {
 }
 
 object *lookup_var(context_stack *cs, object *sym) {
-    //printf("Looking up object (%p) in context: (%p)\n", sym, c);
-//    object *o = map_get(cstack[cstackoff]->vars, sym);
-//    if(!o && c->parent) {
-//        return lookup_var(c->parent, sym);
-//    }
-//    return o;
     return lookup_var_off(cs, sym, cs->cstackoff);
 }
 
@@ -52,31 +45,20 @@ object *bind_var(context_stack *cs, object *sym, object *var) {
 }
 
 object *lookup_fn(context_stack *cs, object *sym) {
-//    while(c->parent != NULL) {
-//        c = c->parent;
-//    }
+    // Get from slot 0. Function bindings should always be *global*
     object *o = map_get(cs->cstack[0]->funcs, sym);
-//    if(!o && c->parent) {
-//        return lookup_fn(c->parent, sym);
-//    }
     return o;
 }
 
 void bind_native_fn(context_stack *cs, object *sym, void (*fn)(context_stack *, long)) {
-    // Function bindings should always be *global*
-//    while(c->parent != NULL) {
-//        c = c->parent;
-//    }
+    // Put in slot 0. Function bindings should always be *global*
     object *o =  new_object(O_FN_NATIVE, fn);
     map_put(cs->cstack[0]->funcs, sym, o);
     object_set_name(o, strdup(string_ptr(oval_symbol(sym))));
 }
 
 void bind_fn(context_stack *cs, object *sym, object *fn) {
-    // Function bindings should always be *global*
-//    while(c->parent != NULL) {
-//        c = c->parent;
-//    }
+    // Put in slot 0. Function bindings should always be *global*
     map_put(cs->cstack[0]->funcs, sym, fn);
 }
 
@@ -88,7 +70,6 @@ context *new_context() {
     context *c = malloc(sizeof (context));
     c->vars = map_create(sym_equal);
     c->funcs = map_create(sym_equal);
-//    c->parent = NULL;
     return c;
 }
 
@@ -98,17 +79,11 @@ context *top_context(context_stack *cs) {
 
 context *push_context(context_stack *cs) {
     context *c = new_context();
-    //printf("Pushing new context: (%p) onto parent: (%p)\n", c, curr);
     push_existing_context(cs, c);
-//    cstackoff++;
-//    cstack[cstackoff] = curr;
-//    c->parent = curr;
     return c;
 }
 
 context *push_existing_context(context_stack *cs, context *existing) {
-    //printf("Pushing existing context: (%p) onto parent: (%p)\n", new, curr);
-//    new->parent = curr;
     cs->cstackoff++;
     if(cs->cstackoff == cs->cstacksize) {
         cs->cstacksize *= 2;
@@ -119,10 +94,6 @@ context *push_existing_context(context_stack *cs, context *existing) {
 }
 
 context *pop_context(context_stack *cs) {
-    //printf("Popping context: (%p) and returning parent: (%p)\n", curr, curr->parent);
-//    context *ret = curr->parent;
-//    curr->parent = NULL;
-    //free_context(curr);
     cs->cstackoff--;
     return cs->cstack[cs->cstackoff];
 }
@@ -165,7 +136,6 @@ context_var_iterator *context_var_iterator_next(context_var_iterator *cvi) {
             cvi->var_mi = iterate_map(cvi->cs->cstack[cvi->cstackoff]->vars);
             while(cvi->var_mi == NULL) {
                 if(cvi->cstackoff == 0) {
-                    //free(cvi);
                     return NULL;
                 }
                 cvi->cstackoff--;
@@ -174,8 +144,6 @@ context_var_iterator *context_var_iterator_next(context_var_iterator *cvi) {
             return cvi;
         }
         else {
-//            cvi->cs = NULL;
-//            cvi->var_mi = NULL;
             return NULL;
         }
     }
@@ -189,19 +157,12 @@ struct sym_val_pair context_var_iterator_values(context_var_iterator *cvi) {
        
     svp.sym = mp.key;
     svp.val = mp.val;
-//    printf("CONTEXT Found binding from: ");
-//    print_object(svp.sym);
-//    printf("(%p) to: ", svp.sym);
-//    print_object(svp.val);
-//    printf("(%p)\n", svp.val);
     return svp;
 }
 
 void destroy_context_var_iterator(context_var_iterator *cvi) {
     if(cvi->var_mi) {
-        printf("Freeing map.\n");
         destroy_map_iterator(cvi->var_mi);
     }
-    printf("Freeing CVI.\n");
     free(cvi);
 }

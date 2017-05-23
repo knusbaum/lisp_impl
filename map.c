@@ -45,7 +45,7 @@ void map_put(map_t *m, void *key, void *val) {
 
 void *map_get(map_t *m, void *key) {
     if(key == NULL) return NULL;
-    
+
     for(size_t i = 0; i < m->count; i++) {
         if(m->equal(m->keys[i], key)) {
             return m->vals[i];
@@ -79,10 +79,6 @@ struct map_iterator {
 };
 
 map_iterator *iterate_map(map_t *m) {
-//    printf("Iterating map: %p (%ld entries)\n", m, m->count);
-//    for(size_t i = 0; i < m->count; i++) {
-//        printf("Have key: (%p)\n", m->vals[i]);
-//    }
     if(m->count == 0) {
         return NULL;
     }
@@ -109,9 +105,6 @@ struct map_pair map_iterator_values(map_iterator *mi) {
     }
     mp.key = mi->map->keys[mi->offset];
     mp.val = mi->map->vals[mi->offset];
-//    printf("MAP Found binding from: ");
-//    printf("(%p) to: ", mp.key);
-//    printf("(%p)\n", mp.val);
     return mp;
 }
 

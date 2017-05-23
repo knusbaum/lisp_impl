@@ -12,36 +12,13 @@ static int str_eq(void *s1, void *s2) {
 }
 
 map_t *addrs;
-
 map_t *get_vm_addrs();
-//void run_vm(context *c, compiled_chunk *cc);
-
 
 #define INIT_STACK 4096
 object **stack;
 size_t s_off;
 size_t stack_size;
 
-/** Built-ins **/
-//object *sum(context *c, object *arglist);
-//object *subtract(context *c, object *arglist);
-//object *multiply(context *c, object *arglist);
-//object *divide(context *c, object *arglist);
-//object *length(context *c, object *arglist);
-//object *set(context *c, object *arglist);
-//object *quote(context *c, object *arglist);
-//object *let(context *c, object *arglist);
-//object *eq(context *c, object *arglist);
-//object *fn(context *c, object *arglist);
-//object *lisp_if(context *c, object *arglist);
-//object *and(context *c, object *arglist);
-//object *or(context *c, object *arglist);
-//object *num_gt(context *c, object *arglist);
-//object *num_lt(context *c, object *arglist);
-//object *num_eq(context *c, object *arglist);
-
-//static inline void vm_plus(context *c, long variance);
-//static inline void vm_minus(context *c, long variance);
 static inline void vm_mult(context_stack *cs, long variance);
 static inline void vm_div(context_stack *cs, long variance);
 void vm_num_eq(context_stack *cs, long variance);
@@ -56,8 +33,9 @@ void vm_cons(context_stack *cs, long variance);
 void vm_length(context_stack *cs, long variance);
 void vm_eq(context_stack *cs, long variance);
 void vm_compile(context_stack *cs, long variance);
-
-//void vm_macroexpand(context *c, long variance);
+void vm_compile_fn(context_stack *cs, long variance);
+void vm_compile_macro(context_stack *cs, long variance);
+//void vm_macroexpand(context_stack *cs, long variance);
 
 void vm_init(context_stack *cs) {
     stack = malloc(sizeof (object *) * INIT_STACK);
@@ -67,11 +45,6 @@ void vm_init(context_stack *cs) {
     bind_var(cs, interns("NIL"), interns("NIL"));
     bind_var(cs, interns("T"), interns("T"));
 
-//    bind_native_fn(c, interns("+"), vm_plus);
-//    bind_native_fn(c, interns("-"), vm_minus);
-//    bind_native_fn(c, interns("*"), vm_mult);
-//    bind_native_fn(c, interns("/"), vm_div);
-//    bind_native_fn(c, interns("="), vm_num_eq);
     bind_native_fn(cs, interns(">"), vm_num_gt);
     bind_native_fn(cs, interns("<"), vm_num_lt);
     bind_native_fn(cs, interns("LIST"), vm_list);
@@ -82,24 +55,23 @@ void vm_init(context_stack *cs) {
     bind_native_fn(cs, interns("CONS"), vm_cons);
     bind_native_fn(cs, interns("LENGTH"), vm_length);
     bind_native_fn(cs, interns("EQ"), vm_eq);
-    bind_native_fn(cs, interns("COMPILE"), vm_compile);
-    //bind_native_fn(c, interns("MACROEXPAND"), vm_macroexpand);
+    bind_native_fn(cs, interns("COMPILE-FN"), vm_compile_fn);
+    bind_native_fn(cs, interns("COMPILE-MACRO"), vm_compile_macro);
+    //bind_native_fn(cs, interns("MACROEXPAND"), vm_macroexpand);
 
     addrs = get_vm_addrs();
 }
 
 static inline void __push(object *o) {
-//    if(s_off == stack_size) {
-//        stack_size *= 2;
-//        stack = realloc(stack, stack_size * sizeof (object *));
-//    }
-//    printf("Pushing to stack offset: %ld\n", s_off);
+    if(s_off == stack_size) {
+        stack_size *= 2;
+        stack = realloc(stack, stack_size * sizeof (object *));
+    }
     stack[s_off++] = o;
 }
 
 static inline object *__pop() {
     if(s_off == 0) return obj_nil();
-    //printf("Popping from stack offset: %ld\n", s_off - 1);
     return stack[--s_off];
 }
 
@@ -118,31 +90,6 @@ void dump_stack() {
     }
     printf("\n---------------------\n");
 }
-
-//static inline void vm_plus(context *c, long variance) {
-//    (void)c;
-//    long val = 0;
-//    for(int i = 0; i < variance; i++) {
-//        object * v = __pop();
-//        val += oval_long(v);
-//    }
-//    __push(new_object_long(val));
-//}
-//
- //static inline void vm_minus(context *c, long variance) {
-//    (void)c;
-//    if(variance < 1) {
-//        printf("Expected at least 1 argument, but got none.\n");
-//        abort();
-//    }
-//
-//    long val = 0;
-//    for(int i = 0; i < variance - 1; i++) {
-//        val += oval_long(__pop());
-//    }
-//    val = oval_long(__pop()) - val;
-//    __push(new_object_long(val));
-//}
 
 static inline void vm_mult(context_stack *cs, long variance) {
     (void)cs;
@@ -246,7 +193,7 @@ void vm_splice(context_stack *cs, long variance) {
         printf("Expected exactly 2 arguments, but got %ld.\n", variance);
         abort();
     }
-    
+
     (void)cs;
     object *to_splice = __pop();
     object *target = __pop();
@@ -322,7 +269,7 @@ void vm_eq(context_stack *cs, long variance) {
     }
 }
 
-void vm_compile(context_stack *cs, long variance) {
+void vm_compile_fn(context_stack *cs, long variance) {
     if(variance != 2) {
         printf("Expected exactly 2 arguments, but got %ld.\n", variance);
         abort();
@@ -334,6 +281,21 @@ void vm_compile(context_stack *cs, long variance) {
     object *fn = new_object_fn_compiled(fn_cc);
     printf("Compiling fn %s into cc: %p\n", string_ptr(oval_symbol(fname)), fn_cc);
     bind_fn(cs, fname, fn);
+    compile_fn(fn_cc, cs, uncompiled_fn);
+}
+
+void vm_compile_macro(context_stack *cs, long variance) {
+    if(variance != 2) {
+        printf("Expected exactly 2 arguments, but got %ld.\n", variance);
+        abort();
+    }
+    object *fname = __pop();
+    object *uncompiled_fn = __pop();
+    compiled_chunk *fn_cc = new_compiled_chunk();
+    fn_cc->c = top_context(cs);
+    object *macro = new_object_macro_compiled(fn_cc);
+    printf("Compiling fn %s into cc: %p\n", string_ptr(oval_symbol(fname)), fn_cc);
+    bind_fn(cs, fname, macro);
     compile_fn(fn_cc, cs, uncompiled_fn);
 }
 
@@ -361,6 +323,7 @@ void vm_compile(context_stack *cs, long variance) {
 //    fn_call(cc, c, fn);
 //}
 
+
 void call(context_stack *cs, long variance) {
     object *fn = __pop();
     if(fn == obj_nil() || fn == NULL) {
@@ -371,9 +334,7 @@ void call(context_stack *cs, long variance) {
     }
     if (otype(fn) == O_FN_COMPILED) {
         compiled_chunk *cc = oval_fn_compiled(fn);
-        //context *existing = c;
         if(cc->c) {
-            //c = push_existing_context(c, cc->c);
             push_existing_context(cs, cc->c);
         }
         run_vm(cs, cc);
@@ -418,7 +379,7 @@ void resolve(context_stack *cs) {
 
 object *vm_eval(context_stack *cs, object *o) {
     compiled_chunk *cc = compile_form(cs, o);
-    
+
     run_vm(cs, cc);
     printf("AFTER EXECUTION: \n");
     printf("Dumping stack:\n");
@@ -427,8 +388,8 @@ object *vm_eval(context_stack *cs, object *o) {
     return __pop();
 }
 
-//        dump_stack();                             
-//        printf("--------------------------\n");   
+//        dump_stack();
+//        printf("--------------------------\n");
 
 #define NEXTI {                                 \
         bs++;                                   \
@@ -601,7 +562,7 @@ num_eq:
         __push(obj_nil());
     }
     NEXTI;
-    
+
 exit:
     //printf("%ld@%p EXIT\n", bs - cc->bs, cc);
     return NULL;

@@ -127,7 +127,7 @@ void bs_pop(compiled_chunk *cc) {
 void bs_push_context(compiled_chunk *cc) {
     printf("%ld@%p bs_push_context\n", cc->b_off, cc);
     add_binstr_arg(cc, map_get(addrs, "push_lex_context"), NULL);
-    
+
 }
 
 void bs_pop_context(compiled_chunk *cc) {
@@ -138,7 +138,6 @@ void bs_pop_context(compiled_chunk *cc) {
 void bs_bind(compiled_chunk *cc, context_stack *cs, object *sym) {
     object *stackoffsetobj = new_object_stackoffset(cc->stacklevel);
     printf("%ld@%p bs_bind %s to stacklevel %ld: (%p)\n", cc->b_off, cc, string_ptr(oval_symbol(sym)), cc->stacklevel, stackoffsetobj);
-    //add_binstr_arg(cc, map_get(addrs, "bind"), NULL);
     bind_var(cs, sym, stackoffsetobj);
 }
 
@@ -161,8 +160,6 @@ void bs_push_from_stack(compiled_chunk *cc, size_t offset) {
 }
 
 void bs_resolve(compiled_chunk *cc, context_stack *cs, object *sym) {
-    //printf("%ld@%p bs_resolve: resolving: %s\n", cc->b_off, cc, string_ptr(oval_symbol(sym)));
-    //
     object *var_stacklevel = lookup_var(cs, sym);
     if(!var_stacklevel) {
         printf("Cannot resolve sym: ");
@@ -171,18 +168,11 @@ void bs_resolve(compiled_chunk *cc, context_stack *cs, object *sym) {
         abort();
     }
     if(otype(var_stacklevel) == O_STACKOFFSET) {
-        
+
         printf("Resolving to: %ld, %ld from top of stack (%ld): (%p)\n", oval_stackoffset(var_stacklevel), cc->stacklevel - oval_stackoffset(var_stacklevel), cc->stacklevel, var_stacklevel);
         bs_push_from_stack(cc, cc->stacklevel - oval_stackoffset(var_stacklevel));
     }
-//    else if(var_stacklevel && var_stacklevel != obj_nil()) {
-//        bs_push(cc, var_stacklevel);
-//    }
     else {
-//        printf("(%p) Type of sym: %d\n", var_stacklevel, otype(var_stacklevel));
-//        printf("Value: ");
-//        print_object(var_stacklevel);
-//        printf("\n");
         bs_push(cc, sym);
         printf("%ld@%p bs_resolve: resolving: %s\n", cc->b_off, cc, string_ptr(oval_symbol(sym)));
         add_binstr_arg(cc, map_get(addrs, "resolve_sym"), NULL);
@@ -219,7 +209,7 @@ void bs_num_eq(compiled_chunk *cc, long variance) {
 void bs_call(compiled_chunk *cc, long variance) {
     printf("%ld@%p bs_call (%ld)\n", cc->b_off, cc, variance);
     add_binstr_variance(cc, map_get(addrs, "call"), variance);
-    cc->stacklevel -= (variance); // num args + function - return val
+    cc->stacklevel -= (variance);
 }
 
 void bs_exit(compiled_chunk *cc) {
@@ -232,20 +222,15 @@ void bs_label(compiled_chunk *cc, char *label) {
     map_put(cc->labels, label, (void *)cc->b_off);
 }
 
-#define BS_GO_TAG ((void *)0x0)
-#define BS_GO_IF_NIL_TAG ((void *)0x1)
-
 void bs_go(compiled_chunk *cc, char *label) {
     printf("%ld@%p bs_go: %s\n", cc->b_off, cc, label);
     add_binstr_str(cc, map_get(addrs, "go"), label);
-    //add_binstr_str(cc, BS_GO_TAG, label);
 }
 
 void bs_go_if_nil(compiled_chunk *cc, char *label) {
     printf("%ld@%p bs_go_if_nil: %s\n", cc->b_off, cc, label);
     add_binstr_str(cc, map_get(addrs, "go_if_nil"), label);
     cc->stacklevel--;
-    //add_binstr_str(cc, BS_GO_IF_NIL_TAG, label);
 }
 
 // Reverse the bind order and handle variadic calls
@@ -263,11 +248,8 @@ long fn_bind_params(compiled_chunk *cc, context_stack *cs, object *curr, long va
             printf("Must supply a symbol to bind for &REST.\n");
             abort();
         }
-        //bs_push(cc, param);
         bs_bind(cc, cs, param);
         cc->stacklevel++;
-//        printf("Binding %p to %ld in %p\n", param, variance, c);
-//        bind_var(c, param, new_object_long(variance));
         curr = ocdr(curr);
         if(curr != obj_nil()) {
             printf("Expected end of list, but have: ");
@@ -278,29 +260,22 @@ long fn_bind_params(compiled_chunk *cc, context_stack *cs, object *curr, long va
         return variance;
     }
 
-    //bs_push(cc, param);
-
     bs_bind(cc, cs, param);
     cc->stacklevel++;
-    //printf("\t Adding 1 to stacklevel. (%ld)\n", cc->stacklevel);
-    //printf("Binding %p to %ld in %p\n", param, variance, c);
-    //bind_var(c, param, new_object_long(variance)); //(void *)variance);
     variance = fn_bind_params(cc, cs, ocdr(curr), variance);
-
     variance++;
 
     return variance;
 }
 
 void fn_call(compiled_chunk *cc, context_stack *cs, object *fn) {
-    //bs_push_context(cc);
     push_context(cs); // pushing context for var binding.
     object *fargs = oval_fn_args(fn);
     object *fbody = oval_fn_body(fn);
 
     cc->variance = fn_bind_params(cc, cs, fargs, 0);
-    cc->stacklevel--; //= cc->variance;
-    
+    cc->stacklevel--;
+
     int first_form = 1;
     for(; fbody != obj_nil(); fbody = ocdr(fbody)) {
         if(!first_form) {
@@ -336,52 +311,33 @@ void compile_fn(compiled_chunk *fn_cc, context_stack *cs, object *fn) {
     bs_exit(fn_cc);
 }
 
-//static void resolve_labels(compiled_chunk *cc) {
-//    for(size_t i = 0; i < cc ->b_off; i++) {
-//        if(cc->bs[i].instr == BS_GO_TAG) {
-//            cc->bs[i].offset = (size_t)map_get(cc->labels, cc->bs[i].str);
-//            cc->bs[i].instr = map_get(addrs, "go_optim");
-//        }
-//        else if(cc->bs[i].instr == BS_GO_IF_NIL_TAG) {
-//            cc->bs[i].offset = (size_t)map_get(cc->labels, cc->bs[i].str);
-//            cc->bs[i].instr = map_get(addrs, "go_if_nil_optim");
-//        }
-//    }
-//}
-
 static void vm_let(compiled_chunk *cc, context_stack *cs, object *o) {
-    //bs_push_context(cc);
-
     object *letlist = ocar(ocdr(o));
     long pushlen = 0;
     for(object *frm = letlist; frm != obj_nil(); frm = ocdr(frm)) {
         object *assign = ocar(frm);
         object *sym = ocar(assign);
         compile_bytecode(cc, cs, ocar(ocdr(assign)));
-        //bs_push(cc, sym);
         bs_bind(cc, cs, sym);
         pushlen++;
     }
-    int first_time = 1; // Pop the previous result. It will be unused. (only the last form is "returned.")
+    int first_time = 1;
     for(object *body = ocdr(ocdr(o)); body != obj_nil(); body = ocdr(body)) {
         if(!first_time) {
+            // Pop the previous result. It will be unused. (only the last form is "returned.")
             bs_pop(cc);
         }
         first_time=0;
         compile_bytecode(cc, cs, ocar(body));
-        
+
     }
     bs_chew_top(cc, pushlen);
-//    for(int i = 0; i < pushlen; i++) {
-//        bs_pop(cc);
-//    }
-    //bs_pop_context(cc);
 }
 
 static void bind_vars_for_closure(compiled_chunk *cc, context_stack *cs) {
     (void)cc;
     context_var_iterator *it = iterate_vars(cs);
-    context_var_iterator *current = it; //= context_var_iterator_next(it);
+    context_var_iterator *current = it;
     while(current) {
         struct sym_val_pair svp = context_var_iterator_values(current);
         printf("COMPILER Found binding from: ");
@@ -396,7 +352,6 @@ static void bind_vars_for_closure(compiled_chunk *cc, context_stack *cs) {
             printf("(%p) to: ", svp.sym);
             print_object(svp.val);
             printf("(%p)\n", svp.val);
-            //bs_push(cc, svp.sym);
             bs_resolve(cc, cs, svp.sym);
             bs_push(cc, svp.sym);
             bs_bind_var(cc);
@@ -425,20 +380,12 @@ static void vm_fn(compiled_chunk *cc, context_stack *cs, object *o) {
         abort();
     }
 
-    //c = push_context(c);
     bs_push_context(cc);
     bind_vars_for_closure(cc, cs);
     bs_push(cc, new_object_fn(fargs, body));
     bs_push(cc, fname);
-    bs_push(cc, lookup_fn(cs, interns("COMPILE")));
+    bs_push(cc, lookup_fn(cs, interns("COMPILE-FN")));
     bs_call(cc, 2);
-//    compiled_chunk *fn_cc = new_compiled_chunk();
-//    object *fn = new_object_fn_compiled(fn_cc);
-//    printf("Compiling fn %s into cc: %p\n", string_ptr(oval_symbol(fname)), fn_cc);
-//    bind_fn(c, fname, fn);
-//    compile_fn(fn_cc, c, new_object_fn(fargs, body));
-//    c = pop_context(c);
-    //resolve_labels(fn_cc);
     bs_pop_context(cc);
 }
 
@@ -460,7 +407,8 @@ void vm_if(compiled_chunk *cc, context_stack *cs, object *o) {
     bs_go(cc, end_branch_lab);
 
     // False branch
-    cc->stacklevel = stackoff; // stack offset must be reset since above code was not run if we're executing this.
+    // stack offset must be reset since above code was not run if we're executing this.
+    cc->stacklevel = stackoff;
     bs_label(cc, false_branch_lab);
     compile_bytecode(cc, cs, false_branch);
     bs_label(cc, end_branch_lab);
@@ -484,10 +432,13 @@ void vm_defmacro(compiled_chunk *cc, context_stack *cs, object *o) {
         abort();
     }
 
-    compiled_chunk *macro_cc = new_compiled_chunk();
-    compile_fn(macro_cc, cs, new_object_fn(fargs, body));
-    bind_fn(cs, fname, new_object_macro_compiled(macro_cc));
-    //resolve_labels(macro_cc);
+    bs_push_context(cc);
+    bind_vars_for_closure(cc, cs);
+    bs_push(cc, new_object_fn(fargs, body));
+    bs_push(cc, fname);
+    bs_push(cc, lookup_fn(cs, interns("COMPILE-MACRO")));
+    bs_call(cc, 2);
+    bs_pop_context(cc);
 }
 
 int vm_backtick(compiled_chunk *cc, context_stack *cs, object *o) {
@@ -509,7 +460,7 @@ int vm_backtick(compiled_chunk *cc, context_stack *cs, object *o) {
                 if(should_splice) {
                     bs_push(cc, lookup_fn(cs, interns("SPLICE")));
                     bs_call(cc, 2);
-                    
+
                 }
                 else {
                     bs_push(cc, lookup_fn(cs, interns("APPEND")));
@@ -585,7 +536,7 @@ static void compile_cons(compiled_chunk *cc, context_stack *cs, object *o) {
             num_args++;
             compile_bytecode(cc, cs, ocar(curr));
         }
-        
+
         bs_subtract(cc, num_args);
     }
     else if(func == interns("*")) {
@@ -618,9 +569,6 @@ static void compile_cons(compiled_chunk *cc, context_stack *cs, object *o) {
 
         bs_num_eq(cc, num_args);
     }
-//    else if(func == vm_s_for) {
-//        vm_for(cc, c, o);
-//    }
     else {
         object *fn = lookup_fn(cs, func);
         if(!fn) {
@@ -667,13 +615,11 @@ static void compile_cons(compiled_chunk *cc, context_stack *cs, object *o) {
 }
 
 void compile_bytecode(compiled_chunk *cc, context_stack *cs, object *o) {
-    //object *stack_offset;
     switch(otype(o)) {
     case O_CONS:
         compile_cons(cc, cs, o);
         break;
     case O_SYM:
-        //bs_push(cc, o);
         bs_resolve(cc, cs, o);
         break;
     case O_STR:
@@ -733,9 +679,9 @@ object *expand_macros_rec(compiled_chunk *cc, context_stack *cs, object *o, size
                     abort();
                 }
             }
-            
+
             run_vm(cs, oval_fn_compiled(func));
-            
+
             object *exp = pop();
             for(int i = 0; i < num_args; i++) {
                 pop();
@@ -764,7 +710,7 @@ object *expand_macros(compiled_chunk *cc, context_stack *cs, object *o) {
 
 compiled_chunk *compile_form(context_stack *cs, object *o) {
     compiled_chunk *cc = new_compiled_chunk();
-    
+
     o = expand_macros(cc, cs, o);
     printf("Expanded: ");
     print_object(o);
@@ -772,7 +718,6 @@ compiled_chunk *compile_form(context_stack *cs, object *o) {
 
     compile_bytecode(cc, cs, o);
     bs_exit(cc);
-    //resolve_labels(cc);
-    
+
     return cc;
 }
