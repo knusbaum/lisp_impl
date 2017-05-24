@@ -5,7 +5,7 @@
 #include "context.h"
 #include "map.h"
 #include "compiler.h"
-
+#include "gc.h"
 
 static int str_eq(void *s1, void *s2) {
     return strcmp((char *)s1, (char *)s2) == 0;
@@ -13,6 +13,11 @@ static int str_eq(void *s1, void *s2) {
 
 map_t *addrs;
 map_t *get_vm_addrs();
+
+pthread_mutex_t gc_mut;
+pthread_mutex_t *get_gc_mut() {
+    return &gc_mut;
+}
 
 map_t *special_syms;
 
@@ -51,6 +56,9 @@ void vm_print(context_stack *cs, long variance);
 void vm_macroexpand(context_stack *cs, long variance);
 
 void vm_init(context_stack *cs) {
+    pthread_mutex_init(&gc_mut, NULL); //fastmutex; //PTHREAD_MUTEX_INITIALIZER;
+    pthread_mutex_lock(&gc_mut);
+    
     stack = malloc(sizeof (object *) * INIT_STACK);
     s_off = 0;
     stack_size = INIT_STACK;
@@ -92,6 +100,11 @@ static inline void __push(object *o) {
 static inline object *__pop() {
     if(s_off == 0) return obj_nil();
     return stack[--s_off];
+}
+
+static inline object *__top() {
+    if(s_off == 0) return obj_nil();
+    return stack[s_off - 1];
 }
 
 void push(object *o) {
@@ -357,10 +370,12 @@ void call(context_stack *cs, long variance) {
             push_existing_context(cs, cc->c);
         }
         run_vm(cs, cc);
+        set_gc_flag(__top(), GC_FLAG_BLACK);
         object *ret = __pop();
         for(int i = 0; i < variance; i++) {
             __pop();
         }
+        //__pop(); // pop fn
         __push(ret);
         if(cc->c) {
             pop_context(cs);
@@ -397,7 +412,7 @@ void resolve(context_stack *cs) {
 
 
 void vm_macroexpand_rec(context_stack *cs, long rec) {
-    object *o = __pop();
+    object *o = __top();
     if(rec >= 4096) {
         printf("Cannot expand macro. Nesting too deep.\n");
         abort();
@@ -429,6 +444,7 @@ void vm_macroexpand_rec(context_stack *cs, long rec) {
                     call(cs, num_args - fn_cc->variance);
                     printf("Dumping stack:\n");
                     dump_stack();
+                    num_args = fn_cc->variance + 1;
                 }
                 else {
                     printf("Expected exactly %ld arguments, but got %ld.\n", fn_cc->variance, num_args);
@@ -436,31 +452,58 @@ void vm_macroexpand_rec(context_stack *cs, long rec) {
                 }
             }
 
+            printf("------------------STACK BEFORE MACRO-----------------------\n");
+            dump_stack();
+            printf("------------------END STACK BEFORE MACRO-----------------------\n");
             run_vm(cs, oval_fn_compiled(func));
+            printf("------------------STACK AFTER MACRO-----------------------\n");
+            dump_stack();
+            printf("------------------END STACK AFTER MACRO-----------------------\n");
 
             object *exp = pop();
             for(int i = 0; i < num_args; i++) {
                 pop();
             }
-            printf("Expanded: ");
+            pop(); // pop o;
+            printf("\n\n\t!!!!!!!!!!Expanded: ");
             print_object(exp);
-            printf("\n");
+            printf("!!!!!!!!!!!!!!!!!!!!!\n\n");
+            printf("------------------STACK AFTER EXPANSION-----------------------\n");
+            dump_stack();
+            printf("------------------END STACK AFTER EXPANSION-----------------------\n");
             push(exp);
             vm_macroexpand_rec(cs, rec);
         }
         else {
             for(object *margs = o; margs != obj_nil(); margs = ocdr(margs)) {
                 push(ocar(margs));
+                printf("REC Expanding: ");
+                print_object(__top());
+                printf("\n--------------------\n");
+                dump_stack();
                 vm_macroexpand_rec(cs, rec);
-                osetcar(margs, pop());
+                set_gc_flag(__top(), GC_FLAG_BLACK);
+                object *o = pop();
+                printf("Setting car of ");
+                print_object(margs);
+                printf(" to: ");
+                print_object(o);
+                printf("\n");
+                osetcar(margs, o);
             }
+            printf("RETURNING --------------------\n");
+            dump_stack();
             //return o;
-            push(o);
+            //push(o);
+            return;
         }
     }
     else {
+        printf(">No need to expand: ");
+        print_object(o);
+        printf("\n");
         //return o;
-        push(o);
+        //push(o);
     }
 }
 
@@ -481,9 +524,13 @@ void vm_eval(context_stack *cs, long variance) {
     call(cs, 1);
     compiled_chunk *cc = new_compiled_chunk();
     object *o = __pop();
+    printf("EVALING Expanded: ");
+    print_object(o);
+    printf("\n");
     compile_form(cc, cs, o);
     run_vm(cs, cc);
     free_compiled_chunk(cc);
+    
 }
 
 void vm_read(context_stack *cs, long variance) {
@@ -651,7 +698,8 @@ add:
     //printf("%ld@%p ADD (%ld)\n", bs - cc->bs, cc, bs->variance);
     mathvar = 0;
     for(i = 0; i < bs->variance; i++) {
-        mathvar += oval_long(__pop());
+        mathvar += oval_long(__top());
+        __pop();
     }
     __push(new_object_long(mathvar));
     NEXTI;
@@ -688,6 +736,12 @@ num_eq:
     NEXTI;
 
 exit:
+    //printf("[VM] UNLOCKING GC MUT:\n");
+    pthread_mutex_unlock(&gc_mut);
+    //printf("[VM] UNLOCKED GC MUT:\n");
+    //printf("[VM] LOCKING GC MUT:\n");
+    pthread_mutex_lock(&gc_mut);
+    //printf("[VM] LOCKED GC MUT:\n");
     //printf("%ld@%p EXIT\n", bs - cc->bs, cc);
     return NULL;
 }

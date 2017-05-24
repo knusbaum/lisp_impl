@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <pthread.h>
 #include "lexer.h"
 #include "parser.h"
 #include "context.h"
@@ -13,14 +14,18 @@ int main(void) {
     gc_init();
     vm_init(cs);
     compiler_init();
-    
+
+    pthread_t gc_thread;
+    pthread_create(&gc_thread, NULL, run_gc_loop, cs);
     
     compiled_chunk *cc = repl(cs);
     while(1) {
         printf("\n> ");
         run_vm(cs, cc);
-        gc(cs);
-        dump_heap();
+        printf("\nDumping stack.\n");
+        dump_stack();
+        //gc(cs);
+        //dump_heap();
     }
 
     printf("Shutting down.\n");

@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include "object.h"
 #include "compiler.h"
 #include "map.h"
@@ -471,6 +472,7 @@ void destroy_object(object *o) {
     case O_CONS:
     case O_FN:
     case O_MACRO:
+        memset(o->c, 0, sizeof (cons));
         free(o->c);
         break;
     case O_FN_COMPILED:
@@ -479,5 +481,6 @@ void destroy_object(object *o) {
         free_compiled_chunk(o->cc);
         break;
     }
+    memset(o, 0, sizeof (object));
     free(o);
 }

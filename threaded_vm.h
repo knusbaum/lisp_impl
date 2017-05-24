@@ -1,6 +1,7 @@
 #ifndef THREADED_VM_H
 #define THREADED_VM_H
 
+#include <pthread.h>
 #include "object.h"
 #include "context.h"
 #include "map.h"
@@ -23,5 +24,7 @@ void call(context_stack *c, long variance);
 
 object **get_stack();
 size_t get_stack_off();
+
+pthread_mutex_t *get_gc_mut();
 
 #endif

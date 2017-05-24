@@ -119,8 +119,10 @@ void add_binstr_offset(compiled_chunk *c, void *instr, size_t offset) {
 }
 
 void free_compiled_chunk(compiled_chunk *c) {
+    memset(c->bs, 0, c->bsize * sizeof (struct binstr));
     free(c->bs);
     map_destroy(c->labels);
+    memset(c, 0, sizeof (compiled_chunk));
     free(c);
 }
 

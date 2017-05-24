@@ -10,6 +10,7 @@
 
 void gc_init();
 void gc(context_stack *cs);
+void *run_gc_loop(void *cs);
 void add_object_to_gclist(object *o);
 
 void dump_heap();

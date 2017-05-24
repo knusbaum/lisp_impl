@@ -104,6 +104,7 @@ context *pop_context(context_stack *cs) {
 void free_context(context *c) {
     map_destroy(c->vars);
     map_destroy(c->funcs);
+    memset(c, 0, sizeof (context));
     free(c);
 }
 
@@ -120,6 +121,7 @@ context_var_iterator *iterate_vars(context_stack *cs) {
     cvi->var_mi = iterate_map(cs->cstack[cvi->cstackoff]->vars);
     while(cvi->var_mi == NULL) {
         if(cvi->cstackoff == 0) {
+            memset(cvi, 0, sizeof (struct context_var_iterator));
             free(cvi);
             return NULL;
         }
@@ -167,6 +169,7 @@ void destroy_context_var_iterator(context_var_iterator *cvi) {
     if(cvi->var_mi) {
         destroy_map_iterator(cvi->var_mi);
     }
+    memset(cvi, 0, sizeof (context_var_iterator));
     free(cvi);
 }
 
@@ -178,6 +181,7 @@ context_fn_iterator *iterate_fns(context_stack *cs) {
     context_fn_iterator *cfi = malloc(sizeof (struct context_fn_iterator));
     cfi->fn_mi = iterate_map(cs->cstack[0]->funcs);
     while(cfi->fn_mi == NULL) {
+        memset(cfi, 0, sizeof (context_fn_iterator));
         free(cfi);
         return NULL;
     }
@@ -208,6 +212,7 @@ void destroy_context_fn_iterator(context_fn_iterator *cfi) {
     if(cfi->fn_mi) {
         destroy_map_iterator(cfi->fn_mi);
     }
+    memset(cfi, 0, sizeof (context_fn_iterator));
     free(cfi);    
 }
 

@@ -68,8 +68,11 @@ void *map_delete(map_t *m, void *key) {
 }
 
 void map_destroy(map_t *m) {
+    memset(m->keys, 0, m->space);
+    memset(m->vals, 0, m->space);
     free(m->keys);
     free(m->vals);
+    memset(m, 0, sizeof (map_t));
     free(m);
 }
 
@@ -109,6 +112,8 @@ struct map_pair map_iterator_values(map_iterator *mi) {
 }
 
 void destroy_map_iterator(map_iterator *mi) {
-    printf("Freeing map at: %p\n", mi);
+    if(!mi) return;
+    //printf("Freeing map at: %p\n", mi);
+    memset(mi, 0, sizeof (map_iterator));
     free(mi);
 }
