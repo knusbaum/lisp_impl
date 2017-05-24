@@ -737,10 +737,10 @@ num_eq:
 
 exit:
     //printf("[VM] UNLOCKING GC MUT:\n");
-    pthread_mutex_unlock(&gc_mut);
+//    pthread_mutex_unlock(&gc_mut);
     //printf("[VM] UNLOCKED GC MUT:\n");
     //printf("[VM] LOCKING GC MUT:\n");
-    pthread_mutex_lock(&gc_mut);
+//    pthread_mutex_lock(&gc_mut);
     //printf("[VM] LOCKED GC MUT:\n");
     //printf("%ld@%p EXIT\n", bs - cc->bs, cc);
     return NULL;

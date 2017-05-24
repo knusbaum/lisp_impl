@@ -73,9 +73,9 @@ int string_equal(string *s1, string *s2) {
 }
 
 void string_free(string *s) {
-    memset(s->s, 0, s->cap);
+    //memset(s->s, 0, s->cap);
     free(s->s);
-    memset(s, 0, sizeof (string));
+    //memset(s, 0, sizeof (string));
     free(s);
 }
 

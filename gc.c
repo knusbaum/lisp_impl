@@ -282,7 +282,7 @@ void gc(context_stack *cs) {
     pthread_mutex_unlock(get_gc_mut());
     //printf("[gc]UNLocked GC MUT:\n");
     
-    memset(grey_queue, 0, gq_size * sizeof (object *));
+    //memset(grey_queue, 0, gq_size * sizeof (object *));
     free(grey_queue);
     gq_off = 0;
     gq_head = 0;

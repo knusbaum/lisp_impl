@@ -1,5 +1,6 @@
-CFLAGS=-ggdb -O0 -Wall -Wextra -Werror
+CFLAGS=-ggdb -O2 -pg -Wall -Wextra -Werror
 EXECUTABLE=lisp
+LDFLAGS=-lpthread
 
 OBJECTS=main.o \
 		lexer.o \
@@ -15,7 +16,7 @@ OBJECTS=main.o \
 all: lisp
 
 lisp: $(OBJECTS)
-	$(CC) $(CFLAGS) $(OBJECTS) -o $(EXECUTABLE)
+	$(CC) $(CFLAGS) $(LDFLAGS) $(OBJECTS) -o $(EXECUTABLE)
 
 clean:
 	-@rm -Rf *~ *.o
