@@ -101,6 +101,19 @@ context *pop_context(context_stack *cs) {
     return c;
 }
 
+size_t context_level(context_stack *cs) {
+    return cs->cstackoff;
+}
+
+void pop_context_to_level(context_stack *cs, size_t level) {
+    if(cs->cstackoff < level) {
+        printf("CANNOT POP CONTEXT. TRIED TO GO TO LEVEL %ld BUT ALREADY AT LEVEL %ld\n",
+               level, cs->cstackoff);
+        abort(); // This NEEDS to be an abort. the VM cannot recover.
+    }
+    cs->cstackoff = level;
+}
+
 void free_context(context *c) {
     map_destroy(c->vars);
     map_destroy(c->funcs);

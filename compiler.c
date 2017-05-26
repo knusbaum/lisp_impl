@@ -15,6 +15,7 @@ object *vm_s_fn;
 object *vm_s_if;
 object *vm_s_defmacro;
 object *vm_s_for;
+object *vm_s_catch;
 
 map_t *internals;
 
@@ -43,6 +44,7 @@ void compiler_init() {
     vm_s_if = interns("IF");
     vm_s_defmacro = interns("DEFMACRO");
     vm_s_for = interns("FOR");
+    vm_s_catch = interns("CATCH");
 
     internals = map_create(sym_equal);
     map_put(internals, vm_s_quote, vm_s_quote);
@@ -54,6 +56,7 @@ void compiler_init() {
     map_put(internals, vm_s_if, vm_s_if);
     map_put(internals, vm_s_defmacro, vm_s_defmacro);
     map_put(internals, vm_s_for, vm_s_for);
+    map_put(internals, vm_s_for, vm_s_catch);
 }
 
 compiled_chunk *new_compiled_chunk() {
@@ -228,6 +231,15 @@ void bs_num_eq(compiled_chunk *cc, long variance) {
     cc->stacklevel -= ((variance)-1);
 }
 
+void bs_catch(compiled_chunk *cc) {
+    add_binstr_arg(cc, map_get(addrs, "catch"), NULL);
+    cc->stacklevel--;
+}
+
+void bs_pop_catch(compiled_chunk *cc) {
+    add_binstr_arg(cc, map_get(addrs, "pop_catch"), NULL);
+}
+
 void bs_call(compiled_chunk *cc, long variance) {
     //printf("%ld@%p bs_call (%ld)\n", cc->b_off, cc, variance);
     add_binstr_variance(cc, map_get(addrs, "call"), variance);
@@ -252,6 +264,12 @@ void bs_go(compiled_chunk *cc, char *label) {
 void bs_go_if_nil(compiled_chunk *cc, char *label) {
     //printf("%ld@%p bs_go_if_nil: %s\n", cc->b_off, cc, label);
     add_binstr_str(cc, map_get(addrs, "go_if_nil"), label);
+    cc->stacklevel--;
+}
+
+void bs_go_if_not_nil(compiled_chunk *cc, char *label) {
+    //printf("%ld@%p bs_go_if_nil: %s\n", cc->b_off, cc, label);
+    add_binstr_str(cc, map_get(addrs, "go_if_not_nil"), label);
     cc->stacklevel--;
 }
 
@@ -508,6 +526,33 @@ void vm_for(compiled_chunk *cc, context_stack *cs, object *o) {
     printf("\n");
 }
 
+void vm_catch(compiled_chunk *cc, context_stack *cs, object *o) {
+    object *caught = ocdr(o);
+    object *wrapped_form = ocdr(caught);
+    object *catch_branch = ocdr(wrapped_form);
+
+    char *catch_branch_lab = mk_label();
+    char *end_lab = mk_label();
+
+    // Catch form
+    compile_bytecode(cc, cs, ocar(caught));
+    bs_catch(cc);
+    bs_go_if_not_nil(cc, catch_branch_lab);
+    long stackoff = cc->stacklevel;
+
+    // Wrapped form
+    compile_bytecode(cc, cs, ocar(wrapped_form));
+    bs_pop_catch(cc);
+    bs_go(cc, end_lab);
+
+    // Catch Branch
+    cc->stacklevel = stackoff;
+    bs_label(cc, catch_branch_lab);
+    compile_bytecode(cc, cs, ocar(catch_branch));
+
+    bs_label(cc, end_lab);
+}
+
 static void compile_cons(compiled_chunk *cc, context_stack *cs, object *o) {
     object *func = ocar(o);
 
@@ -532,6 +577,9 @@ static void compile_cons(compiled_chunk *cc, context_stack *cs, object *o) {
     else if(func == vm_s_comma) {
         printf("Error: Comma outside of a backtick.\n");
         abort();
+    }
+    else if(func == vm_s_catch) {
+        vm_catch(cc, cs, o);
     }
     // inlined arithmetic
     else if(func == interns("+")) {

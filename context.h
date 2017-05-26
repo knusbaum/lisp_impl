@@ -26,6 +26,8 @@ context *top_context(context_stack *cs);
 context *push_context(context_stack *cs);
 context *push_existing_context(context_stack *cs, context *existing);
 context *pop_context(context_stack *cs);
+size_t context_level(context_stack *cs);
+void pop_context_to_level(context_stack *cs, size_t level);
 void free_context(context *c);
 object *lookup_var(context_stack *cs, object *sym);
 object *bind_var(context_stack *cs, object *sym, object *var);

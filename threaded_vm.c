@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <setjmp.h>
 #include "threaded_vm.h"
 #include "context.h"
 #include "map.h"
@@ -34,6 +35,49 @@ size_t get_stack_off() {
     return s_off;
 }
 
+/* error handling machinery */
+/**
+ * I don't think we need to scan this in GC, since the syms
+ * should be interned, and the list of interned syms is a
+ * GC root.
+ */
+struct stack_trap {
+    jmp_buf buff;
+    size_t s_off;
+    size_t trap_stack_off;
+    size_t context_off;
+    object *catcher;
+};
+
+#define INIT_TRAP_STACK 64
+struct stack_trap *trap_stack;
+size_t trap_stack_off;
+size_t trap_stack_size;
+
+static inline jmp_buf *__push_trap(context_stack *cs, object *catcher) {
+    if(trap_stack_off == trap_stack_size) {
+        trap_stack_size *= 2;
+        stack = realloc(trap_stack, trap_stack_size * sizeof (object *));
+    }
+    trap_stack[trap_stack_off].s_off = s_off;
+    trap_stack[trap_stack_off].trap_stack_off = trap_stack_off;
+    trap_stack[trap_stack_off].context_off = context_level(cs);
+    trap_stack[trap_stack_off].catcher = catcher;
+    jmp_buf *ret = &trap_stack[trap_stack_off].buff;
+    trap_stack_off++;
+    return ret;
+}
+
+static inline void __pop_trap() {
+    if(trap_stack_off == 0) return;
+    trap_stack[trap_stack_off].catcher = NULL;
+    --trap_stack_off;
+}
+
+void pop_trap() {
+    __pop_trap();
+}
+
 static inline void vm_mult(context_stack *cs, long variance);
 static inline void vm_div(context_stack *cs, long variance);
 void vm_num_eq(context_stack *cs, long variance);
@@ -55,6 +99,7 @@ void vm_read(context_stack *cs, long variance);
 void vm_print(context_stack *cs, long variance);
 void vm_macroexpand(context_stack *cs, long variance);
 void vm_gensym(context_stack *cs, long variance);
+void vm_error(context_stack *cs, long variance);
 
 void vm_init(context_stack *cs) {
     pthread_mutex_init(&gc_mut, NULL); //fastmutex; //PTHREAD_MUTEX_INITIALIZER;
@@ -63,6 +108,10 @@ void vm_init(context_stack *cs) {
     stack = malloc(sizeof (object *) * INIT_STACK);
     s_off = 0;
     stack_size = INIT_STACK;
+
+    trap_stack = malloc(sizeof (struct stack_trap) * INIT_TRAP_STACK);
+    trap_stack_off = 0;
+    trap_stack_size = INIT_TRAP_STACK;
 
     bind_var(cs, interns("NIL"), interns("NIL"));
     bind_var(cs, interns("T"), interns("T"));
@@ -84,6 +133,7 @@ void vm_init(context_stack *cs) {
     bind_native_fn(cs, interns("PRINT"), vm_print);
     bind_native_fn(cs, interns("MACROEXPAND"), vm_macroexpand);
     bind_native_fn(cs, interns("GENSYM"), vm_gensym);
+    bind_native_fn(cs, interns("ERROR"), vm_error);
 
     addrs = get_vm_addrs();
     special_syms = map_create(sym_equal);
@@ -467,6 +517,47 @@ void vm_gensym(context_stack *cs, long variance) {
     __push(new_gensym);
 }
 
+void vm_error(context_stack *cs, long variance) {
+    if(variance != 1) {
+        printf("Expected exactly 1 argument, but got %ld.\n", variance);
+        abort();
+    }
+    object *sym = pop();
+    //printf("Calling vm_error(%ld).\n", trap_stack_off);
+    for(ssize_t i = trap_stack_off - 1; i >= 0; i--) {
+//        printf("Checking trap_stack[%lu].\n", i);
+//        printf("sym: ");
+//        print_object(sym);
+//        printf(", catcher: ");
+//        print_object(trap_stack[i].catcher);
+//        printf("\n");
+        if(sym == trap_stack[i].catcher
+           || trap_stack[i].catcher == obj_nil()) {
+            // Someone wants to catch this error.
+            pop_context_to_level(cs, trap_stack[i].context_off);
+            trap_stack_off = trap_stack[i].trap_stack_off;
+            s_off = trap_stack[i].s_off;
+            //printf("Long jumping.\n");
+            longjmp(trap_stack[i].buff, 3);
+        }
+    }
+
+    printf(" FAILED TO CATCH ERROR! ABORTING!\n");
+    abort();
+}
+
+jmp_buf *vm_push_trap(context_stack *cs, object *sym) {
+    //printf("Entering vm_push_trap.\n");
+    jmp_buf *buff = __push_trap(cs, sym);
+    //int ret = setjmp(*buff);
+    //printf("Returning: %d\n", ret);
+    return buff;
+    //if(setjmp(*buff)) {
+    //    printf("CAUGHT ERROR!\n");
+    //    abort();
+    //}
+}
+
 void vm_eval(context_stack *cs, long variance) {
     if(variance != 1) {
         printf("Expected exactly 1 argument, but got %ld.\n", variance);
@@ -529,12 +620,15 @@ void *___vm(context_stack *cs, compiled_chunk *cc, int _get_vm_addrs) {
         map_put(m, "pop_lex_context", &&pop_lex_context);
         map_put(m, "go", &&go);
         map_put(m, "go_if_nil", &&go_if_nil);
+        map_put(m, "go_if_not_nil", &&go_if_not_nil);
         map_put(m, "push_from_stack", &&push_from_stack);
         map_put(m, "add", &&add);
         map_put(m, "subtract", &&subtract);
         map_put(m, "multiply", &&multiply);
         map_put(m, "divide", &&divide);
         map_put(m, "num_eq", &&num_eq);
+        map_put(m, "catch", &&catch);
+        map_put(m, "pop_catch", &&pop_catch);
         map_put(m, "exit", &&exit);
         return m;
     }
@@ -551,6 +645,7 @@ void *___vm(context_stack *cs, compiled_chunk *cc, int _get_vm_addrs) {
 //    printf("exit: (%p)\n", &&exit);
 
     struct binstr *bs = cc->bs;
+    struct binstr *bs_saved;
 
     goto *bs->instr;
     return NULL;
@@ -560,6 +655,7 @@ void *___vm(context_stack *cs, compiled_chunk *cc, int _get_vm_addrs) {
     long mathvar;
     long truthiness;
     int i;
+    jmp_buf *jmp;
 chew_top:
     //printf("%ld@%p, CHEW_TOP (%ld): ", bs - cc->bs, cc, bs->offset);
     ret = __pop();
@@ -626,6 +722,18 @@ go_if_nil:
     }
     //printf("(not jumping)\n");
     NEXTI;
+go_if_not_nil:
+    target = (size_t)map_get(cc->labels, bs->str);
+    //printf("%ld@%p (%p)GO_IF_NOT_NIL (%s)(%ld) ", bs - cc->bs, cc, bs, bs->str, target);
+//    bs->instr = &&go_if_not_nil_optim;
+//    bs->offset = target;
+    if(__pop() != obj_nil()) {
+        //printf("(jumping to %p)\n", (cc->bs + target)->instr);
+        bs = cc->bs + target;
+        goto *bs->instr;
+    }
+    //printf("(not jumping)\n");
+    NEXTI;
 go_optim:
     //printf("%ld@%p GO_OPTIM (%ld)\n", bs - cc->bs, cc, bs->offset);
     bs = cc->bs + bs->offset;
@@ -683,7 +791,25 @@ num_eq:
         __push(obj_nil());
     }
     NEXTI;
-
+catch:
+    //printf("%ld@%p CATCH ", bs - cc->bs, cc);
+    bs_saved = bs;
+    jmp = vm_push_trap(cs, pop());
+    i = setjmp(*jmp);
+    if(i) {
+        //printf("PUSHING T\n");
+        push(obj_t());
+        bs = bs_saved;
+    }
+    else {
+        //printf("PUSHING NIL\n");
+        push(obj_nil());
+    }
+    NEXTI;
+pop_catch:
+    //printf("%ld@%p POP_CATCH\n", bs - cc->bs, cc);
+    pop_trap();
+    NEXTI;
 exit:
     //printf("%ld@%p EXIT\n", bs - cc->bs, cc);
     pthread_mutex_unlock(&gc_mut);
