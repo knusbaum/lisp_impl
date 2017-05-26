@@ -30,7 +30,6 @@ char *mk_label() {
 }
 
 static int str_eq(void *s1, void *s2) {
-    //printf("RUNNING STRING EQ\n");
     return strcmp((char *)s1, (char *)s2) == 0;
 }
 
@@ -119,65 +118,63 @@ void add_binstr_offset(compiled_chunk *c, void *instr, size_t offset) {
 }
 
 void free_compiled_chunk(compiled_chunk *c) {
-    //memset(c->bs, 0, c->bsize * sizeof (struct binstr));
     free(c->bs);
     map_destroy(c->labels);
-    //memset(c, 0, sizeof (compiled_chunk));
     free(c);
 }
 
 void bs_chew_top(compiled_chunk *cc, size_t num) {
-    printf("%ld@%p bs_chew_top: (%ld)", cc->b_off, cc, num);
+    //printf("%ld@%p bs_chew_top: (%ld)", cc->b_off, cc, num);
     add_binstr_offset(cc, map_get(addrs, "chew_top"), num);
     cc->stacklevel -= num;
 }
 
 void bs_push(compiled_chunk *cc, object *o) {
-    printf("%ld@%p bs_push: ", cc->b_off, cc);
-    print_object(o);
-    printf("\n");
+    //printf("%ld@%p bs_push: ", cc->b_off, cc);
+    //print_object(o);
+    //printf("\n");
 
     add_binstr_arg(cc, map_get(addrs, "push"), o);
     cc->stacklevel++;
 }
 
 void bs_pop(compiled_chunk *cc) {
-    printf("%ld@%p bs_pop\n", cc->b_off, cc);
+    //printf("%ld@%p bs_pop\n", cc->b_off, cc);
     add_binstr_arg(cc, map_get(addrs, "pop"), NULL);
     cc->stacklevel--;
 }
 
 void bs_push_context(compiled_chunk *cc) {
-    printf("%ld@%p bs_push_context\n", cc->b_off, cc);
+    //printf("%ld@%p bs_push_context\n", cc->b_off, cc);
     add_binstr_arg(cc, map_get(addrs, "push_lex_context"), NULL);
 
 }
 
 void bs_pop_context(compiled_chunk *cc) {
-    printf("%ld@%p bs_pop_context\n", cc->b_off, cc);
+    //printf("%ld@%p bs_pop_context\n", cc->b_off, cc);
     add_binstr_arg(cc, map_get(addrs, "pop_lex_context"), NULL);
 }
 
 void bs_bind(compiled_chunk *cc, context_stack *cs, object *sym) {
     object *stackoffsetobj = new_object_stackoffset(cc->stacklevel);
-    printf("%ld@%p bs_bind %s to stacklevel %ld: (%p)\n", cc->b_off, cc, string_ptr(oval_symbol(sym)), cc->stacklevel, stackoffsetobj);
+    //printf("%ld@%p bs_bind %s to stacklevel %ld: (%p)\n", cc->b_off, cc, string_ptr(oval_symbol(sym)), cc->stacklevel, stackoffsetobj);
     bind_var(cs, sym, stackoffsetobj);
 }
 
 void bs_bind_var(compiled_chunk *cc) {
-    printf("%ld@%p bs_bind_var\n", cc->b_off, cc);
+    //printf("%ld@%p bs_bind_var\n", cc->b_off, cc);
     add_binstr_arg(cc, map_get(addrs, "bind_var"), NULL);
     cc->stacklevel-=2;
 }
 
 void bs_bind_fn(compiled_chunk *cc) {
-    printf("%ld@%p bs_bind_fn\n", cc->b_off, cc);
+    //printf("%ld@%p bs_bind_fn\n", cc->b_off, cc);
     add_binstr_arg(cc, map_get(addrs, "bind_fn"), NULL);
     cc->stacklevel-=2;
 }
 
 void bs_push_from_stack(compiled_chunk *cc, size_t offset) {
-    printf("%ld@%p push_from_stack: %ld\n", cc->b_off, cc, offset);
+    //printf("%ld@%p push_from_stack: %ld\n", cc->b_off, cc, offset);
     add_binstr_offset(cc, map_get(addrs, "push_from_stack"), offset);
     cc->stacklevel++;
 }
@@ -192,7 +189,7 @@ void bs_resolve(compiled_chunk *cc, context_stack *cs, object *sym) {
     }
     if(otype(var_stacklevel) == O_STACKOFFSET) {
 
-        printf("Resolving to: %ld, %ld from top of stack (%ld): (%p)\n", oval_stackoffset(var_stacklevel), cc->stacklevel - oval_stackoffset(var_stacklevel), cc->stacklevel, var_stacklevel);
+        //printf("Resolving to: %ld, %ld from top of stack (%ld): (%p)\n", oval_stackoffset(var_stacklevel), cc->stacklevel - oval_stackoffset(var_stacklevel), cc->stacklevel, var_stacklevel);
         bs_push_from_stack(cc, cc->stacklevel - oval_stackoffset(var_stacklevel));
     }
     else if(map_get(special_syms, sym) != NULL) {
@@ -200,61 +197,61 @@ void bs_resolve(compiled_chunk *cc, context_stack *cs, object *sym) {
     }
     else {
         bs_push(cc, sym);
-        printf("%ld@%p bs_resolve: resolving: %s\n", cc->b_off, cc, string_ptr(oval_symbol(sym)));
+        //printf("%ld@%p bs_resolve: resolving: %s\n", cc->b_off, cc, string_ptr(oval_symbol(sym)));
         add_binstr_arg(cc, map_get(addrs, "resolve_sym"), NULL);
     }
 }
 
 void bs_add(compiled_chunk *cc, long variance) {
-    printf("%ld@%p bs_add (%ld)\n", cc->b_off, cc, variance);
+    //printf("%ld@%p bs_add (%ld)\n", cc->b_off, cc, variance);
     add_binstr_variance(cc, map_get(addrs, "add"), variance);
     cc->stacklevel -= ((variance)-1);
 }
 
 void bs_subtract(compiled_chunk *cc, long variance) {
-    printf("%ld@%p bs_subtract (%ld)\n", cc->b_off, cc, variance);
+    //printf("%ld@%p bs_subtract (%ld)\n", cc->b_off, cc, variance);
     add_binstr_variance(cc, map_get(addrs, "subtract"), variance);
     cc->stacklevel -= ((variance)-1);
 }
 void bs_multiply(compiled_chunk *cc, long variance) {
-    printf("%ld@%p bs_multiply (%ld)\n", cc->b_off, cc, variance);
+    //printf("%ld@%p bs_multiply (%ld)\n", cc->b_off, cc, variance);
     add_binstr_variance(cc, map_get(addrs, "multiply"), variance);
     cc->stacklevel -= ((variance)-1);
 }
 void bs_divide(compiled_chunk *cc, long variance) {
-    printf("%ld@%p bs_divide (%ld)\n", cc->b_off, cc, variance);
+    //printf("%ld@%p bs_divide (%ld)\n", cc->b_off, cc, variance);
     add_binstr_variance(cc, map_get(addrs, "divide"), variance);
     cc->stacklevel -= ((variance)-1);
 }
 void bs_num_eq(compiled_chunk *cc, long variance) {
-    printf("%ld@%p bs_num_eq (%ld)\n", cc->b_off, cc, variance);
+    //printf("%ld@%p bs_num_eq (%ld)\n", cc->b_off, cc, variance);
     add_binstr_variance(cc, map_get(addrs, "num_eq"), variance);
     cc->stacklevel -= ((variance)-1);
 }
 
 void bs_call(compiled_chunk *cc, long variance) {
-    printf("%ld@%p bs_call (%ld)\n", cc->b_off, cc, variance);
+    //printf("%ld@%p bs_call (%ld)\n", cc->b_off, cc, variance);
     add_binstr_variance(cc, map_get(addrs, "call"), variance);
     cc->stacklevel -= (variance);
 }
 
 void bs_exit(compiled_chunk *cc) {
-    printf("%ld@%p bs_exit\n", cc->b_off, cc);
+    //printf("%ld@%p bs_exit\n", cc->b_off, cc);
     add_binstr_arg(cc, map_get(addrs, "exit"), NULL);
 }
 
 void bs_label(compiled_chunk *cc, char *label) {
-    printf("%ld@%p bs_label: %s\n", cc->b_off, cc, label);
+    //printf("%ld@%p bs_label: %s\n", cc->b_off, cc, label);
     map_put(cc->labels, label, (void *)cc->b_off);
 }
 
 void bs_go(compiled_chunk *cc, char *label) {
-    printf("%ld@%p bs_go: %s\n", cc->b_off, cc, label);
+    //printf("%ld@%p bs_go: %s\n", cc->b_off, cc, label);
     add_binstr_str(cc, map_get(addrs, "go"), label);
 }
 
 void bs_go_if_nil(compiled_chunk *cc, char *label) {
-    printf("%ld@%p bs_go_if_nil: %s\n", cc->b_off, cc, label);
+    //printf("%ld@%p bs_go_if_nil: %s\n", cc->b_off, cc, label);
     add_binstr_str(cc, map_get(addrs, "go_if_nil"), label);
     cc->stacklevel--;
 }
@@ -281,6 +278,7 @@ long fn_bind_params(compiled_chunk *cc, context_stack *cs, object *curr, long va
             printf("Expected end of list, but have: ");
             print_object(curr);
             printf("\n");
+            abort();
         }
         cc->flags |= CC_FLAG_HAS_REST;
         return variance;
@@ -296,7 +294,6 @@ long fn_bind_params(compiled_chunk *cc, context_stack *cs, object *curr, long va
 
 void fn_call(compiled_chunk *cc, context_stack *cs, object *fn) {
     push_context(cs); // pushing context for var binding.
-    printf("\n\n!!!!!!!!!!!!PUSHING CONTEXT: %p\n\n", top_context(cs));
     
     object *fargs = oval_fn_args(fn);
     object *fbody = oval_fn_body(fn);
@@ -314,9 +311,7 @@ void fn_call(compiled_chunk *cc, context_stack *cs, object *fn) {
         compile_bytecode(cc, cs, form);
     }
     context *c = pop_context(cs);
-    printf("\n\n!!!!!!!!!!!!POPPING CONTEXT: %p\n\n", c);
     free_context(c);
-    //pop_context(cs);
 }
 
 void compile_fn(compiled_chunk *fn_cc, context_stack *cs, object *fn) {
@@ -371,18 +366,18 @@ static void bind_vars_for_closure(compiled_chunk *cc, context_stack *cs) {
     context_var_iterator *current = it;
     while(current) {
         struct sym_val_pair svp = context_var_iterator_values(current);
-        printf("COMPILER Found binding from: ");
-        print_object(svp.sym);
-        printf("(%p) to: ", svp.sym);
-        print_object(svp.val);
-        printf("(%p)\n", svp.val);
+//        printf("COMPILER Found binding from: ");
+//        print_object(svp.sym);
+//        printf("(%p) to: ", svp.sym);
+//        print_object(svp.val);
+//        printf("(%p)\n", svp.val);
         current = context_var_iterator_next(current);
         if(otype(svp.val) == O_STACKOFFSET) {
-            printf("(%p)Binding: ", cs);
-            print_object(svp.sym);
-            printf("(%p) to: ", svp.sym);
-            print_object(svp.val);
-            printf("(%p)\n", svp.val);
+//            printf("(%p)Binding: ", cs);
+//            print_object(svp.sym);
+//            printf("(%p) to: ", svp.sym);
+//            print_object(svp.val);
+//            printf("(%p)\n", svp.val);
             bs_resolve(cc, cs, svp.sym);
             bs_push(cc, svp.sym);
             bs_bind_var(cc);
@@ -619,7 +614,7 @@ static void compile_cons(compiled_chunk *cc, context_stack *cs, object *o) {
 
             if(num_args > fn_cc->variance) {
                 if(fn_cc->flags & CC_FLAG_HAS_REST) {
-                    printf("PUSHING REST AS LIST!!!\n");
+//                    printf("PUSHING REST AS LIST!!!\n");
                     bs_push(cc, lookup_fn(cs, interns("LIST")));
                     bs_call(cc, num_args - fn_cc->variance);
                 }

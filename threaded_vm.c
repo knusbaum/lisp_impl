@@ -311,7 +311,7 @@ void vm_compile_fn(context_stack *cs, long variance) {
     compiled_chunk *fn_cc = new_compiled_chunk();
     fn_cc->c = top_context(cs);
     object *fn = new_object_fn_compiled(fn_cc);
-    printf("Compiling fn %s into cc: %p with context: %p\n", string_ptr(oval_symbol(fname)), fn_cc, fn_cc->c);
+    //printf("Compiling fn %s into cc: %p with context: %p\n", string_ptr(oval_symbol(fname)), fn_cc, fn_cc->c);
     bind_fn(cs, fname, fn);
     compile_fn(fn_cc, cs, uncompiled_fn);
 }
@@ -326,7 +326,7 @@ void vm_compile_macro(context_stack *cs, long variance) {
     compiled_chunk *fn_cc = new_compiled_chunk();
     fn_cc->c = top_context(cs);
     object *macro = new_object_macro_compiled(fn_cc);
-    printf("Compiling fn %s into cc: %p\n", string_ptr(oval_symbol(fname)), fn_cc);
+    //printf("Compiling fn %s into cc: %p\n", string_ptr(oval_symbol(fname)), fn_cc);
     bind_fn(cs, fname, macro);
     compile_fn(fn_cc, cs, uncompiled_fn);
 }
@@ -423,27 +423,27 @@ void vm_macroexpand_rec(context_stack *cs, long rec) {
         object *func = lookup_fn(cs, fsym);
         if(func && otype(func) == O_MACRO_COMPILED) {
             // Don't eval the arguments.
-            printf("Expanding: ");
-            print_object(o);
-            printf("\n");
+            //printf("Expanding: ");
+            //print_object(o);
+            //printf("\n");
             long num_args = 0;
             for(object *margs = ocdr(o); margs != obj_nil(); margs = ocdr(margs)) {
-                printf("Pushing: ");
-                print_object(ocar(margs));
-                printf("\n");
+                //printf("Pushing: ");
+                //print_object(ocar(margs));
+                //printf("\n");
                 push(ocar(margs));
                 num_args++;
             }
 
             compiled_chunk *fn_cc = oval_fn_compiled(func);
-            printf("HAVE %ld ARGS AND MACRO VARIANCE IS: %ld\n", num_args, fn_cc->variance);
+            //printf("HAVE %ld ARGS AND MACRO VARIANCE IS: %ld\n", num_args, fn_cc->variance);
             if(num_args > fn_cc->variance) {
                 if(fn_cc->flags & CC_FLAG_HAS_REST) {
-                    printf("PUSHING REST AS LIST!!!\n");
+                    //printf("PUSHING REST AS LIST!!!\n");
                     push(lookup_fn(cs, interns("LIST")));
                     call(cs, num_args - fn_cc->variance);
-                    printf("Dumping stack:\n");
-                    dump_stack();
+                    //printf("Dumping stack:\n");
+                    //dump_stack();
                     num_args = fn_cc->variance + 1;
                 }
                 else {
@@ -452,56 +452,56 @@ void vm_macroexpand_rec(context_stack *cs, long rec) {
                 }
             }
 
-            printf("------------------STACK BEFORE MACRO-----------------------\n");
-            dump_stack();
-            printf("------------------END STACK BEFORE MACRO-----------------------\n");
+//            printf("------------------STACK BEFORE MACRO-----------------------\n");
+//            dump_stack();
+//            printf("------------------END STACK BEFORE MACRO-----------------------\n");
             run_vm(cs, oval_fn_compiled(func));
-            printf("------------------STACK AFTER MACRO-----------------------\n");
-            dump_stack();
-            printf("------------------END STACK AFTER MACRO-----------------------\n");
+//            printf("------------------STACK AFTER MACRO-----------------------\n");
+//            dump_stack();
+//            printf("------------------END STACK AFTER MACRO-----------------------\n");
 
             object *exp = pop();
             for(int i = 0; i < num_args; i++) {
                 pop();
             }
             pop(); // pop o;
-            printf("\n\n\t!!!!!!!!!!Expanded: ");
-            print_object(exp);
-            printf("!!!!!!!!!!!!!!!!!!!!!\n\n");
-            printf("------------------STACK AFTER EXPANSION-----------------------\n");
-            dump_stack();
-            printf("------------------END STACK AFTER EXPANSION-----------------------\n");
+//            printf("\n\n\t!!!!!!!!!!Expanded: ");
+//            print_object(exp);
+//            printf("!!!!!!!!!!!!!!!!!!!!!\n\n");
+//            printf("------------------STACK AFTER EXPANSION-----------------------\n");
+//            dump_stack();
+//            printf("------------------END STACK AFTER EXPANSION-----------------------\n");
             push(exp);
             vm_macroexpand_rec(cs, rec);
         }
         else {
             for(object *margs = o; margs != obj_nil(); margs = ocdr(margs)) {
                 push(ocar(margs));
-                printf("REC Expanding: ");
-                print_object(__top());
-                printf("\n--------------------\n");
-                dump_stack();
+//                printf("REC Expanding: ");
+//                print_object(__top());
+//                printf("\n--------------------\n");
+//                dump_stack();
                 vm_macroexpand_rec(cs, rec);
                 set_gc_flag(__top(), GC_FLAG_BLACK);
                 object *o = pop();
-                printf("Setting car of ");
-                print_object(margs);
-                printf(" to: ");
-                print_object(o);
-                printf("\n");
+//                printf("Setting car of ");
+//                print_object(margs);
+//                printf(" to: ");
+//                print_object(o);
+//                printf("\n");
                 osetcar(margs, o);
             }
-            printf("RETURNING --------------------\n");
-            dump_stack();
+//            printf("RETURNING --------------------\n");
+//            dump_stack();
             //return o;
             //push(o);
             return;
         }
     }
     else {
-        printf(">No need to expand: ");
-        print_object(o);
-        printf("\n");
+//        printf(">No need to expand: ");
+//        print_object(o);
+//        printf("\n");
         //return o;
         //push(o);
     }
@@ -524,9 +524,9 @@ void vm_eval(context_stack *cs, long variance) {
     call(cs, 1);
     compiled_chunk *cc = new_compiled_chunk();
     object *o = __pop();
-    printf("EVALING Expanded: ");
-    print_object(o);
-    printf("\n");
+//    printf("EVALING Expanded: ");
+//    print_object(o);
+//    printf("\n");
     compile_form(cc, cs, o);
     run_vm(cs, cc);
     free_compiled_chunk(cc);
@@ -650,11 +650,11 @@ bind_fn:
     bind_fn(cs, sym, val);
     NEXTI;
 push_lex_context:
-    printf("\n\n!!!!!!!!!!!!!!%ld@%p PUSH_LEX_CONTEXT %p\n", bs - cc->bs, cc, top_context(cs));
+//    printf("\n\n!!!!!!!!!!!!!!%ld@%p PUSH_LEX_CONTEXT %p\n", bs - cc->bs, cc, top_context(cs));
     push_context(cs);
     NEXTI;
 pop_lex_context:
-    printf("\n\n!!!!!!!!!!!!!!%ld@%p POP_LEX_CONTEXT: %p\n", bs - cc->bs, cc, top_context(cs));
+//    printf("\n\n!!!!!!!!!!!!!!%ld@%p POP_LEX_CONTEXT: %p\n", bs - cc->bs, cc, top_context(cs));
     //free_context(pop_context(cs));
     pop_context(cs);
     NEXTI;

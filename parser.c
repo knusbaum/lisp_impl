@@ -151,8 +151,8 @@ object *next_form() {
         abort();
         break;
     default:
-        printf("[parser.c][next_form] Got another token: ");
-        print_token(currtok());
+//        printf("[parser.c][next_form] Got another token: ");
+//        print_token(currtok());
         get_next_tok();
         return NULL;
     }

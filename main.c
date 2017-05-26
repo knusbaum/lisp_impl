@@ -15,15 +15,15 @@ int main(void) {
     vm_init(cs);
     compiler_init();
 
-    pthread_t gc_thread;
-    pthread_create(&gc_thread, NULL, run_gc_loop, cs);
+    //pthread_t gc_thread;
+    //pthread_create(&gc_thread, NULL, run_gc_loop, cs);
     
     compiled_chunk *cc = repl(cs);
     while(1) {
         printf("\n> ");
         run_vm(cs, cc);
-        printf("\nDumping stack.\n");
-        dump_stack();
+        //printf("\nDumping stack.\n");
+        //dump_stack();
         //gc(cs);
         //dump_heap();
     }
