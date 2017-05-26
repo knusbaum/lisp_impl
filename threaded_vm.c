@@ -54,11 +54,12 @@ void vm_eval(context_stack *cs, long variance);
 void vm_read(context_stack *cs, long variance);
 void vm_print(context_stack *cs, long variance);
 void vm_macroexpand(context_stack *cs, long variance);
+void vm_gensym(context_stack *cs, long variance);
 
 void vm_init(context_stack *cs) {
     pthread_mutex_init(&gc_mut, NULL); //fastmutex; //PTHREAD_MUTEX_INITIALIZER;
     pthread_mutex_lock(&gc_mut);
-    
+
     stack = malloc(sizeof (object *) * INIT_STACK);
     s_off = 0;
     stack_size = INIT_STACK;
@@ -82,6 +83,7 @@ void vm_init(context_stack *cs) {
     bind_native_fn(cs, interns("READ"), vm_read);
     bind_native_fn(cs, interns("PRINT"), vm_print);
     bind_native_fn(cs, interns("MACROEXPAND"), vm_macroexpand);
+    bind_native_fn(cs, interns("GENSYM"), vm_gensym);
 
     addrs = get_vm_addrs();
     special_syms = map_create(sym_equal);
@@ -311,7 +313,6 @@ void vm_compile_fn(context_stack *cs, long variance) {
     compiled_chunk *fn_cc = new_compiled_chunk();
     fn_cc->c = top_context(cs);
     object *fn = new_object_fn_compiled(fn_cc);
-    //printf("Compiling fn %s into cc: %p with context: %p\n", string_ptr(oval_symbol(fname)), fn_cc, fn_cc->c);
     bind_fn(cs, fname, fn);
     compile_fn(fn_cc, cs, uncompiled_fn);
 }
@@ -326,35 +327,9 @@ void vm_compile_macro(context_stack *cs, long variance) {
     compiled_chunk *fn_cc = new_compiled_chunk();
     fn_cc->c = top_context(cs);
     object *macro = new_object_macro_compiled(fn_cc);
-    //printf("Compiling fn %s into cc: %p\n", string_ptr(oval_symbol(fname)), fn_cc);
     bind_fn(cs, fname, macro);
     compile_fn(fn_cc, cs, uncompiled_fn);
 }
-
-//void fn_call(compiled_chunk *cc, context *c, object *fn);
-//void vm_macroexpand(compiled_chunk *cc, context *c, long variance) {
-//    (void)c;
-//    if(variance != 1) {
-//        printf("Expected exactly 1 argument, but got %ld.\n", variance);
-//        abort();
-//    }
-//    object *o = pop();
-//    printf("ARG IS: ");
-//    print_object(o);
-//    printf("\n");
-//
-//    object *func = ocar(o);
-//    for(object *curr = ocdr(o); curr != obj_nil(); curr = ocdr(curr)) {
-//        printf("push object: ");
-//        print_object(ocar(curr));
-//        printf("\n");
-//        bs_push(cc, ocar(curr));
-//    }
-//    printf("macroexpand %s\n", string_ptr(oval_symbol(func))); ///
-//    object *fn = lookup_fn(c, func);
-//    fn_call(cc, c, fn);
-//}
-
 
 void call(context_stack *cs, long variance) {
     object *fn = __pop();
@@ -423,27 +398,17 @@ void vm_macroexpand_rec(context_stack *cs, long rec) {
         object *func = lookup_fn(cs, fsym);
         if(func && otype(func) == O_MACRO_COMPILED) {
             // Don't eval the arguments.
-            //printf("Expanding: ");
-            //print_object(o);
-            //printf("\n");
             long num_args = 0;
             for(object *margs = ocdr(o); margs != obj_nil(); margs = ocdr(margs)) {
-                //printf("Pushing: ");
-                //print_object(ocar(margs));
-                //printf("\n");
                 push(ocar(margs));
                 num_args++;
             }
 
             compiled_chunk *fn_cc = oval_fn_compiled(func);
-            //printf("HAVE %ld ARGS AND MACRO VARIANCE IS: %ld\n", num_args, fn_cc->variance);
             if(num_args > fn_cc->variance) {
                 if(fn_cc->flags & CC_FLAG_HAS_REST) {
-                    //printf("PUSHING REST AS LIST!!!\n");
                     push(lookup_fn(cs, interns("LIST")));
                     call(cs, num_args - fn_cc->variance);
-                    //printf("Dumping stack:\n");
-                    //dump_stack();
                     num_args = fn_cc->variance + 1;
                 }
                 else {
@@ -452,58 +417,29 @@ void vm_macroexpand_rec(context_stack *cs, long rec) {
                 }
             }
 
-//            printf("------------------STACK BEFORE MACRO-----------------------\n");
-//            dump_stack();
-//            printf("------------------END STACK BEFORE MACRO-----------------------\n");
             run_vm(cs, oval_fn_compiled(func));
-//            printf("------------------STACK AFTER MACRO-----------------------\n");
-//            dump_stack();
-//            printf("------------------END STACK AFTER MACRO-----------------------\n");
 
             object *exp = pop();
             for(int i = 0; i < num_args; i++) {
                 pop();
             }
-            pop(); // pop o;
-//            printf("\n\n\t!!!!!!!!!!Expanded: ");
-//            print_object(exp);
-//            printf("!!!!!!!!!!!!!!!!!!!!!\n\n");
-//            printf("------------------STACK AFTER EXPANSION-----------------------\n");
-//            dump_stack();
-//            printf("------------------END STACK AFTER EXPANSION-----------------------\n");
+            pop();
             push(exp);
             vm_macroexpand_rec(cs, rec);
         }
         else {
             for(object *margs = o; margs != obj_nil(); margs = ocdr(margs)) {
                 push(ocar(margs));
-//                printf("REC Expanding: ");
-//                print_object(__top());
-//                printf("\n--------------------\n");
-//                dump_stack();
                 vm_macroexpand_rec(cs, rec);
                 set_gc_flag(__top(), GC_FLAG_BLACK);
                 object *o = pop();
-//                printf("Setting car of ");
-//                print_object(margs);
-//                printf(" to: ");
-//                print_object(o);
-//                printf("\n");
                 osetcar(margs, o);
             }
-//            printf("RETURNING --------------------\n");
-//            dump_stack();
-            //return o;
-            //push(o);
             return;
         }
     }
     else {
-//        printf(">No need to expand: ");
-//        print_object(o);
-//        printf("\n");
-        //return o;
-        //push(o);
+        return;
     }
 }
 
@@ -515,6 +451,22 @@ void vm_macroexpand(context_stack *cs, long variance) {
     return vm_macroexpand_rec(cs, 0);
 }
 
+unsigned int gensym_num;
+
+void vm_gensym(context_stack *cs, long variance) {
+    (void)cs;
+    if(variance != 0) {
+        printf("Expected exactly 0 arguments, but got %ld.\n", variance);
+        abort();
+    }
+
+    char *gensym = malloc(18); // 10 digits + "gensym-"(7) + \0
+    sprintf(gensym, "gensym-%u", gensym_num++);
+    object *new_gensym = interns(gensym);
+    free(gensym);
+    __push(new_gensym);
+}
+
 void vm_eval(context_stack *cs, long variance) {
     if(variance != 1) {
         printf("Expected exactly 1 argument, but got %ld.\n", variance);
@@ -524,13 +476,10 @@ void vm_eval(context_stack *cs, long variance) {
     call(cs, 1);
     compiled_chunk *cc = new_compiled_chunk();
     object *o = __pop();
-//    printf("EVALING Expanded: ");
-//    print_object(o);
-//    printf("\n");
     compile_form(cc, cs, o);
     run_vm(cs, cc);
     free_compiled_chunk(cc);
-    
+
 }
 
 void vm_read(context_stack *cs, long variance) {
@@ -736,13 +685,9 @@ num_eq:
     NEXTI;
 
 exit:
-    //printf("[VM] UNLOCKING GC MUT:\n");
-    pthread_mutex_unlock(&gc_mut);
-    //printf("[VM] UNLOCKED GC MUT:\n");
-    //printf("[VM] LOCKING GC MUT:\n");
-    pthread_mutex_lock(&gc_mut);
-    //printf("[VM] LOCKED GC MUT:\n");
     //printf("%ld@%p EXIT\n", bs - cc->bs, cc);
+    pthread_mutex_unlock(&gc_mut);
+    pthread_mutex_lock(&gc_mut);
     return NULL;
 }
 

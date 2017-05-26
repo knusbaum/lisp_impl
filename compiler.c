@@ -33,7 +33,7 @@ static int str_eq(void *s1, void *s2) {
     return strcmp((char *)s1, (char *)s2) == 0;
 }
 
-void compiler_init() {    
+void compiler_init() {
     vm_s_quote = interns("QUOTE");
     vm_s_backtick = interns("BACKTICK");
     vm_s_comma = interns("COMMA");
@@ -73,7 +73,7 @@ void add_binstr_arg(compiled_chunk *c, void *instr, object *arg) {
 
     struct binstr *target = c->bs + c->b_off;
     target->instr = instr;
-    target->has_arg=1;    
+    target->has_arg=1;
     target->arg=arg;
     c->b_off++;
 }
@@ -133,7 +133,6 @@ void bs_push(compiled_chunk *cc, object *o) {
     //printf("%ld@%p bs_push: ", cc->b_off, cc);
     //print_object(o);
     //printf("\n");
-
     add_binstr_arg(cc, map_get(addrs, "push"), o);
     cc->stacklevel++;
 }
@@ -294,7 +293,7 @@ long fn_bind_params(compiled_chunk *cc, context_stack *cs, object *curr, long va
 
 void fn_call(compiled_chunk *cc, context_stack *cs, object *fn) {
     push_context(cs); // pushing context for var binding.
-    
+
     object *fargs = oval_fn_args(fn);
     object *fbody = oval_fn_body(fn);
 
@@ -323,8 +322,8 @@ void compile_fn(compiled_chunk *fn_cc, context_stack *cs, object *fn) {
         abort();
     }
     if(otype(fn) == O_FN_NATIVE) {
-        printf("call native.\n");
-        //oval_native(fn)(c, variance);
+        printf("Can't compile a native function...\n");
+        abort();
     }
     else if(otype(fn) == O_FN) {
         fn_call(fn_cc, cs, fn);
@@ -366,18 +365,8 @@ static void bind_vars_for_closure(compiled_chunk *cc, context_stack *cs) {
     context_var_iterator *current = it;
     while(current) {
         struct sym_val_pair svp = context_var_iterator_values(current);
-//        printf("COMPILER Found binding from: ");
-//        print_object(svp.sym);
-//        printf("(%p) to: ", svp.sym);
-//        print_object(svp.val);
-//        printf("(%p)\n", svp.val);
         current = context_var_iterator_next(current);
         if(otype(svp.val) == O_STACKOFFSET) {
-//            printf("(%p)Binding: ", cs);
-//            print_object(svp.sym);
-//            printf("(%p) to: ", svp.sym);
-//            print_object(svp.val);
-//            printf("(%p)\n", svp.val);
             bs_resolve(cc, cs, svp.sym);
             bs_push(cc, svp.sym);
             bs_bind_var(cc);
@@ -418,7 +407,7 @@ static void vm_fn(compiled_chunk *cc, context_stack *cs, object *o) {
 void vm_if(compiled_chunk *cc, context_stack *cs, object *o) {
     object *cond = ocdr(o);
     object *true_branch = ocdr(cond);
-    object *false_branch = ocar(ocdr(true_branch));
+    object *false_branch = ocar(ocdr(true_branch)); // Will be nil if there is no else (works)
 
     char *false_branch_lab = mk_label();
     char *end_branch_lab = mk_label();
@@ -614,7 +603,6 @@ static void compile_cons(compiled_chunk *cc, context_stack *cs, object *o) {
 
             if(num_args > fn_cc->variance) {
                 if(fn_cc->flags & CC_FLAG_HAS_REST) {
-//                    printf("PUSHING REST AS LIST!!!\n");
                     bs_push(cc, lookup_fn(cs, interns("LIST")));
                     bs_call(cc, num_args - fn_cc->variance);
                 }
