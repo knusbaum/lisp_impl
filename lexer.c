@@ -5,6 +5,23 @@
 #include "lexer.h"
 #include "lstring.h"
 
+struct lexer {
+    FILE *f;
+    int look;
+};
+
+struct lexer *new_lexer(FILE *f) {
+    struct lexer *l = malloc(sizeof (struct lexer));
+    l->f = f;
+    l->look = 0;
+    return l;
+}
+
+void destroy_lexer(struct lexer *lex) {
+    fclose(lex->f);
+    free(lex);
+}
+
 int is_whitespace(int c) {
     return
         c == ' ' ||
@@ -19,41 +36,43 @@ int is_sym_char(int c) {
         c != ')';
 }
 
-int _look;
-static int look() {
+//int lex->look;
+static int look(struct lexer *lex) {
     //printf("[lexer.c][look] Looking.\n");
-    if(!_look) {
-        _look = getchar();
+    if(!lex->look) {
+        lex->look = getc(lex->f);
     }
-    return _look;
+    return lex->look;
 }
 
-static int get_char() {
+static int get_char(struct lexer *lex) {
     //printf("[lexer.c][get_char] Getting char.\n");
-    if(!_look) {
-        _look = getchar();
+    if(!lex->look) {
+        lex->look = getc(lex->f);
     }
-    int ret = _look;
-    _look = getchar();
+    int ret = lex->look;
+    lex->look = getc(lex->f);
     //printf("[lexer.c][get_char] Got: %c\n", ret);
     return ret;
 }
 
-static void skip_whitespace() {
+static void skip_whitespace(struct lexer *lex) {
     //printf("[lexer.c][next_token] Skipping whitespace.\n");
-    while(is_whitespace(look())) {
-        get_char();
+    while(is_whitespace(look(lex))) {
+        get_char(lex);
     }
 }
 
-static void match(int c) {
+static void match(struct lexer *lex, int c) {
     //printf("[lexer.c][match] Matching %c.\n", c);
-    if(look() == c) {
+    if(look(lex) == c) {
         //get_char();
-        _look = 0;
+        lex->look = 0;
         return;
     }
-    printf("BAD MATCH! Wanted: %c, got: %c\n", c, look());
+    // This should never happen. If it does, it is a bug in the VM.
+    printf("BAD MATCH! Wanted: %c, got: %c\n", c, look(lex));
+    printf("This is a bug. Please report this.\n");
     abort();
 }
 
@@ -70,110 +89,110 @@ static void append_escaped(string *s, int c) {
     }
 }
 
-string *parse_string() {
-    match('"');
+string *parse_string(struct lexer *lex) {
+    match(lex, '"');
     int c;
     string *s = new_string();
-    while((c = look()) != '"') {
+    while((c = look(lex)) != '"') {
         switch(c) {
         case '\\':
-            match('\\');
-            append_escaped(s, look());
+            match(lex, '\\');
+            append_escaped(s, look(lex));
             break;
         default:
             string_append(s, c);
-            get_char();
+            get_char(lex);
         }
     }
-    match('"');
+    match(lex, '"');
     return s;
 }
 
-string *parse_symbol() {
+string *parse_symbol(struct lexer *lex) {
     string *s = new_string();
     int c;
-    while(c = look(), is_sym_char(c)) {
+    while(c = look(lex), is_sym_char(c)) {
         if(c >=97 && c <= 122) {
             c -= 32;
         }
         string_append(s, c);
-        get_char();
+        get_char(lex);
     }
     return s;
 }
 
-long parse_long() {
+long parse_long(struct lexer *lex) {
     string *s = new_string();
-    while(isdigit(look())) {
-        string_append(s, look());
-        get_char();
+    while(isdigit(look(lex))) {
+        string_append(s, look(lex));
+        get_char(lex);
     }
     long ret = strtol(string_ptr(s), NULL, 0);
     string_free(s);
     return ret;
 }
 
-void next_token(struct token *t) {
-    skip_whitespace();
+void next_token(struct lexer *lex, struct token *t) {
+    skip_whitespace(lex);
 
-    switch(look()) {
+    switch(look(lex)) {
     case '(':
         t->type = LPAREN;
         t->data = NULL;
-        get_char();
+        get_char(lex);
         break;
     case ')':
         t->type = RPAREN;
         t->data = NULL;
-        get_char();
+        get_char(lex);
         break;
     case '\'':
         t->type = QUOTE;
         t->data = NULL;
-        get_char();
+        get_char(lex);
         break;
     case '"':
         t->type = STRING;
-        t->data = parse_string();
+        t->data = parse_string(lex);
         break;
     case '.':
         t->type = DOT;
         t->data = NULL;
-        get_char();
+        get_char(lex);
         break;
     case ':':
         t->type = KEYWORD;
-        t->data = parse_symbol();
+        t->data = parse_symbol(lex);
         break;
     case '`':
         t->type = BACKTICK;
         t->data = NULL;
-        get_char();
+        get_char(lex);
         break;
     case ',':
         t->type = COMMA;
         t->data = NULL;
-        get_char();
+        get_char(lex);
         break;
     case '@':
         t->type = AT_SYMBOL;
         t->data = NULL;
-        get_char();
+        get_char(lex);
         break;
     case EOF:
         t->type = END;
         t->data = NULL;
         break;
     default:
-        if(isdigit(look())) {
+        if(isdigit(look(lex))) {
             t->type = NUM;
-            t->num = parse_long();
+            t->num = parse_long(lex);
 //            get_char();
         }
         //if(isalpha(look())) {
         else {
             t->type = SYM;
-            t->data = parse_symbol();
+            t->data = parse_symbol(lex);
         }
 //        else {
 //            //printf("[lexer.c][next_token] Got invalid character: %c\n", look());

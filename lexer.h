@@ -1,6 +1,8 @@
 #ifndef LEXER_H
 #define LEXER_H
 
+#include <stdio.h>
+
 enum toktype {
     NONE = 0,
     LPAREN = 1,
@@ -25,7 +27,12 @@ struct token {
     };
 };
 
-void next_token(struct token *t);
+struct lexer;
+
+struct lexer *new_lexer(FILE *f);
+void destroy_lexer(struct lexer *lex);
+
+void next_token(struct lexer *lex, struct token *t);
 void free_token(struct token *t);
 const char *toktype_str(enum toktype t);
 void print_token(struct token *t);

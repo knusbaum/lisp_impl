@@ -13,7 +13,7 @@ static int str_eq(void *s1, void *s2) {
 }
 
 map_t *addrs;
-map_t *get_vm_addrs();
+//map_t *get_vm_addrs();
 
 pthread_mutex_t gc_mut;
 pthread_mutex_t *get_gc_mut() {
@@ -101,6 +101,8 @@ void vm_macroexpand(context_stack *cs, long variance);
 void vm_gensym(context_stack *cs, long variance);
 void vm_error(context_stack *cs, long variance);
 
+parser *stdin_parser;
+
 void vm_init(context_stack *cs) {
     pthread_mutex_init(&gc_mut, NULL); //fastmutex; //PTHREAD_MUTEX_INITIALIZER;
     pthread_mutex_lock(&gc_mut);
@@ -139,6 +141,8 @@ void vm_init(context_stack *cs) {
     special_syms = map_create(sym_equal);
     map_put(special_syms, obj_t(), (void *)1);
     map_put(special_syms, obj_nil(), (void *)1);
+
+    stdin_parser = new_parser_file(stdin); 
 }
 
 static inline void __push(object *o) {
@@ -620,7 +624,7 @@ void vm_read(context_stack *cs, long variance) {
         //abort();
         vm_error_impl(cs, interns("SIG-ERROR"));
     }
-    object *o = next_form(NULL);
+    object *o = next_form(stdin_parser, cs);
     if(o) {
         __push(o);
     }

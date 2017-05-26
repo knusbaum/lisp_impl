@@ -4,86 +4,92 @@
 #include "lexer.h"
 #include "map.h"
 #include "context.h"
+#include "threaded_vm.h"
 
 struct parser {
-    FILE *f;
+    struct lexer *lex;
+    struct token current;
 };
 
 parser *new_parser(char *fname) {
     FILE *f = fopen(fname, "r");
+    return new_parser_file(f);
+}
+
+parser *new_parser_file(FILE *f) {
     parser *p = malloc(sizeof (parser));
-    p->f = f;
+    p->lex = new_lexer(f);
+    p->current.type = NONE;
     return p;
 }
 
 void destroy_parser(parser *p) {
-    fclose(p->f);
+    destroy_lexer(p->lex);
     free(p);
 }
 
-struct token current;
-
-void get_next_tok() {
+void get_next_tok(parser *p) {
     //printf("[parser.c][get_next_tok] Getting next token.\n");
-    if(current.type != NONE) {
-        free_token(&current);
+    if(p->current.type != NONE) {
+        free_token(&p->current);
     }
-    next_token(&current);
+    next_token(p->lex, &p->current);
     //printf("[parser.c][get_next_tok] Ended up with @ %p: ", &current);
     //print_token(&current);
 }
 
-void clear_tok() {
-    free_token(&current);
-    current.type = NONE;
+void clear_tok(parser *p) {
+    free_token(&p->current);
+    p->current.type = NONE;
 }
 
-struct token *currtok() {
+struct token *currtok(parser *p) {
     //printf("[parser.c][currtok] Getting currtok.\n");
-    if(current.type == NONE) {
+    if(p->current.type == NONE) {
         //printf("[parser.c][currtok] Going to call next_token.\n");
-        next_token(&current);
+        next_token(p->lex, &p->current);
     }
     //printf("[parser.c][currtok] currtok: ");
     //print_token(&current);
-    return &current;
+    return &p->current;
 }
 
-void tok_match(enum toktype t) {
+void tok_match(context_stack *cs, parser *p, enum toktype t) {
     //printf("[parser.c][tok_match] Matching toktype %s\n", toktype_str(t));
-    if(currtok()->type != t) {
+    if(currtok(p)->type != t) {
         printf("Failed to match toktype %s: got: ", toktype_str(t));
-        print_token(currtok());
-        abort();
+        print_token(currtok(p));
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
     }
-    clear_tok();
+    clear_tok(p);
 }
 
-object *parse_list() {
+object *parse_list(context_stack *cs, parser *p) {
     //printf("[parser.c][parse_list] Entering parse_list\n");
     object *car_obj = NULL;
-    switch(currtok()->type) {
+    switch(currtok(p)->type) {
     case RPAREN:
         //printf("[parser.c][parse_list] Found end of list.\n");
-        tok_match(RPAREN);
+        tok_match(cs, p, RPAREN);
         //return NULL;
         return obj_nil();
         break;
     default:
         //printf("[parser.c][parse_list] Getting next form for CAR.\n");
-        car_obj = next_form();
+        car_obj = next_form(p, cs);
         break;
     }
 
     object *cdr_obj;
-    switch(currtok()->type) {
+    switch(currtok(p)->type) {
     case DOT:
-        tok_match(DOT);
-        cdr_obj = next_form();
-        tok_match(RPAREN);
+        tok_match(cs, p, DOT);
+        cdr_obj = next_form(p, cs);
+        tok_match(cs, p, RPAREN);
         break;
     default:
-        cdr_obj = parse_list();
+        cdr_obj = parse_list(cs, p);
         break;
     }
 
@@ -91,69 +97,72 @@ object *parse_list() {
     return conso;
 }
 
-object *next_form() {
-    if(currtok()->type == NONE) get_next_tok();
+object *next_form(parser *p, context_stack *cs) {
+    if(currtok(p)->type == NONE) get_next_tok(p);
 
     object *o;
-    switch(currtok()->type) {
+    switch(currtok(p)->type) {
     case LPAREN:
-        tok_match(LPAREN);
-        return parse_list();
+        tok_match(cs, p, LPAREN);
+        return parse_list(cs, p);
         break;
     case SYM:
-        o = intern(new_string_copy(string_ptr(currtok()->data)));
-        clear_tok();
+        o = intern(new_string_copy(string_ptr(currtok(p)->data)));
+        clear_tok(p);
         return o;
         break;
     case STRING:
-        o = new_object(O_STR, new_string_copy(string_ptr(currtok()->data)));
-        clear_tok();
+        o = new_object(O_STR, new_string_copy(string_ptr(currtok(p)->data)));
+        clear_tok(p);
         return o;
         break;
     case NUM:
-        o = new_object_long(currtok()->num);
-        clear_tok();
+        o = new_object_long(currtok(p)->num);
+        clear_tok(p);
         return o;
         break;
     case KEYWORD:
-        o = intern(new_string_copy(string_ptr(currtok()->data)));
-        clear_tok();
+        o = intern(new_string_copy(string_ptr(currtok(p)->data)));
+        clear_tok(p);
         return o;
         break;
     case QUOTE:
-        get_next_tok();
-        o = next_form();
+        get_next_tok(p);
+        o = next_form(p, cs);
         o = new_object_cons(o, obj_nil());
         return new_object_cons(intern(new_string_copy("QUOTE")), o);
         break;
     case BACKTICK:
-        get_next_tok();
-        o = next_form();
+        get_next_tok(p);
+        o = next_form(p, cs);
         o = new_object_cons(o, obj_nil());
         return new_object_cons(intern(new_string_copy("BACKTICK")), o);
         break;
     case COMMA:
-        get_next_tok();
-        if(currtok()->type == AT_SYMBOL) {
-            get_next_tok();
-            o = next_form();
+        get_next_tok(p);
+        if(currtok(p)->type == AT_SYMBOL) {
+            get_next_tok(p);
+            o = next_form(p, cs);
             o = new_object_cons(o, obj_nil());
             return new_object_cons(intern(new_string_copy("COMMA_AT")), o);
         }
         else {
-            o = next_form();
+            o = next_form(p, cs);
             o = new_object_cons(o, obj_nil());
             return new_object_cons(intern(new_string_copy("COMMA")), o);
         }
         break;
     case AT_SYMBOL:
-        printf("[parser.c][next_form] @ symbol not with comma.\n");
-        abort();
+        //printf("[parser.c][next_form] @ symbol not with comma.\n");
+        //abort();
+        printf("Found '@' without a comma.\n");
+        vm_error_impl(cs, interns("SIG-ERROR"));
         break;
     default:
 //        printf("[parser.c][next_form] Got another token: ");
 //        print_token(currtok());
-        get_next_tok();
+        get_next_tok(p);
         return NULL;
     }
+    return NULL;
 }
