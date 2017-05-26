@@ -28,7 +28,7 @@ size_t get_stack_off();
 
 pthread_mutex_t *get_gc_mut();
 
-void vm_error(context_stack *cs, long variance);
+void vm_error_impl(context_stack *cs, object *sym);
 jmp_buf *vm_push_trap(context_stack *cs, object *sym);
 void pop_trap();
 

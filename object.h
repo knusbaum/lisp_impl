@@ -38,6 +38,7 @@ object *new_object_macro(object *args, object *body);
 object *new_object_macro_compiled(compiled_chunk *cc);
 object *new_object_list(size_t len, ...);
 enum obj_type otype(object *o);
+
 string *oval_symbol(object *o);
 string *oval_keyword(object *o);
 string *oval_string(object *o);

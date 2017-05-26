@@ -187,7 +187,8 @@ void bs_resolve(compiled_chunk *cc, context_stack *cs, object *sym) {
         printf("Cannot resolve sym: ");
         print_object(sym);
         printf("\n");
-        abort();
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
     }
     if(otype(var_stacklevel) == O_STACKOFFSET) {
 
@@ -286,7 +287,8 @@ long fn_bind_params(compiled_chunk *cc, context_stack *cs, object *curr, long va
         param = ocar(curr);
         if(curr == obj_nil() || param == obj_nil()) {
             printf("Must supply a symbol to bind for &REST.\n");
-            abort();
+            //abort();
+            vm_error_impl(cs, interns("SIG-ERROR"));
         }
         bs_bind(cc, cs, param);
         cc->stacklevel++;
@@ -295,7 +297,8 @@ long fn_bind_params(compiled_chunk *cc, context_stack *cs, object *curr, long va
             printf("Expected end of list, but have: ");
             print_object(curr);
             printf("\n");
-            abort();
+            //abort();
+            vm_error_impl(cs, interns("SIG-ERROR"));
         }
         cc->flags |= CC_FLAG_HAS_REST;
         return variance;
@@ -337,11 +340,13 @@ void compile_fn(compiled_chunk *fn_cc, context_stack *cs, object *fn) {
         printf("Cannot call function: ");
         print_object(fn);
         printf("\n");
-        abort();
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
     }
     if(otype(fn) == O_FN_NATIVE) {
         printf("Can't compile a native function...\n");
-        abort();
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
     }
     else if(otype(fn) == O_FN) {
         fn_call(fn_cc, cs, fn);
@@ -404,13 +409,15 @@ static void vm_fn(compiled_chunk *cc, context_stack *cs, object *o) {
         printf("Cannot bind function to: ");
         print_object(fname);
         printf("\n");
-        abort();
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
     }
     if(otype(fargs) != O_CONS && fargs != obj_nil()) {
         printf("Expected args as list, but got: ");
         print_object(fargs);
         printf("\n");
-        abort();
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
     }
 
     bs_push_context(cc);
@@ -456,13 +463,15 @@ void vm_defmacro(compiled_chunk *cc, context_stack *cs, object *o) {
         printf("Cannot bind function to: ");
         print_object(fname);
         printf("\n");
-        abort();
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
     }
     if(otype(fargs) != O_CONS && fargs != obj_nil()) {
         printf("Expected args as list, but got: ");
         print_object(fargs);
         printf("\n");
-        abort();
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
     }
 
     bs_push_context(cc);
@@ -576,7 +585,8 @@ static void compile_cons(compiled_chunk *cc, context_stack *cs, object *o) {
     }
     else if(func == vm_s_comma) {
         printf("Error: Comma outside of a backtick.\n");
-        abort();
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
     }
     else if(func == vm_s_catch) {
         vm_catch(cc, cs, o);
@@ -636,7 +646,8 @@ static void compile_cons(compiled_chunk *cc, context_stack *cs, object *o) {
         object *fn = lookup_fn(cs, func);
         if(!fn) {
             printf("No such function: %s\n", string_ptr(oval_symbol(func)));
-            abort();
+            //abort();
+            vm_error_impl(cs, interns("SIG-ERROR"));
         }
 
         if(otype(fn) == O_FN_COMPILED) {
@@ -656,7 +667,8 @@ static void compile_cons(compiled_chunk *cc, context_stack *cs, object *o) {
                 }
                 else {
                     printf("Expected exactly %ld arguments, but got %ld.\n", fn_cc->variance, num_args);
-                    abort();
+                    //abort();
+                    vm_error_impl(cs, interns("SIG-ERROR"));
                 }
             }
 
@@ -697,7 +709,8 @@ void compile_bytecode(compiled_chunk *cc, context_stack *cs, object *o) {
         printf("Something else: ");
         print_object(o);
         printf("\n");
-        abort();
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
     }
 }
 

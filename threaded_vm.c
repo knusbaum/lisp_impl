@@ -187,7 +187,8 @@ static inline void vm_mult(context_stack *cs, long variance) {
 static inline void vm_div(context_stack *cs, long variance) {
     if(variance < 1) {
         printf("Expected at least 1 argument, but got none.\n");
-        abort();
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
     }
     (void)cs;
     long val = 1;
@@ -202,7 +203,8 @@ void vm_num_eq(context_stack *cs, long variance) {
     (void)cs;
     if(variance != 2) {
         printf("Expected exactly 2 arguments, but got %ld.\n", variance);
-        abort();
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
     }
     if(oval_long(__pop()) == oval_long(__pop())) {
         __push(obj_t());
@@ -216,7 +218,8 @@ void vm_num_gt(context_stack *cs, long variance) {
     (void)cs;
     if(variance != 2) {
         printf("Expected exactly 2 arguments, but got %ld.\n", variance);
-        abort();
+        //abort();
+        interns("SIG-ERROR");
     }
     // args are reversed.
     if(oval_long(__pop()) < oval_long(__pop())) {
@@ -231,7 +234,8 @@ void vm_num_lt(context_stack *cs, long variance) {
     (void)cs;
     if(variance != 2) {
         printf("Expected exactly 2 arguments, but got %ld.\n", variance);
-        abort();
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
     }
     // args are reversed.
     if(oval_long(__pop()) > oval_long(__pop())) {
@@ -254,7 +258,8 @@ void vm_list(context_stack *cs, long variance) {
 void vm_append(context_stack *cs, long variance) {
     if(variance != 2) {
         printf("Expected exactly 2 arguments, but got %ld.\n", variance);
-        abort();
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
     }
 
     (void)cs;
@@ -275,7 +280,8 @@ void vm_append(context_stack *cs, long variance) {
 void vm_splice(context_stack *cs, long variance) {
     if(variance != 2) {
         printf("Expected exactly 2 arguments, but got %ld.\n", variance);
-        abort();
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
     }
 
     (void)cs;
@@ -297,7 +303,8 @@ void vm_car(context_stack *cs, long variance) {
     (void)cs;
     if(variance != 1) {
         printf("Expected exactly 1 argument, but got %ld.\n", variance);
-        abort();
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
     }
     object *list = __pop();
     __push(ocar(list));
@@ -307,7 +314,8 @@ void vm_cdr(context_stack *cs, long variance) {
     (void)cs;
     if(variance != 1) {
         printf("Expected exactly 1 argument, but got %ld.\n", variance);
-        abort();
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
     }
     object *list = __pop();
     __push(ocdr(list));
@@ -317,7 +325,8 @@ void vm_cons(context_stack *cs, long variance) {
     (void)cs;
     if(variance != 2) {
         printf("Expected exactly 2 arguments, but got %ld.\n", variance);
-        abort();
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
     }
     object *cdr = __pop();
     object *car = __pop();
@@ -329,7 +338,8 @@ void vm_length(context_stack *cs, long variance) {
     (void)cs;
     if(variance != 1) {
         printf("Expected exactly 1 argument, but got %ld.\n", variance);
-        abort();
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
     }
 
     long len = 0;
@@ -343,7 +353,8 @@ void vm_eq(context_stack *cs, long variance) {
     (void)cs;
     if(variance != 2) {
         printf("Expected exactly 2 arguments, but got %ld.\n", variance);
-        abort();
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
     }
     if(__pop() == __pop()) {
         __push(obj_t());
@@ -356,7 +367,8 @@ void vm_eq(context_stack *cs, long variance) {
 void vm_compile_fn(context_stack *cs, long variance) {
     if(variance != 2) {
         printf("Expected exactly 2 arguments, but got %ld.\n", variance);
-        abort();
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
     }
     object *fname = __pop();
     object *uncompiled_fn = __pop();
@@ -370,7 +382,8 @@ void vm_compile_fn(context_stack *cs, long variance) {
 void vm_compile_macro(context_stack *cs, long variance) {
     if(variance != 2) {
         printf("Expected exactly 2 arguments, but got %ld.\n", variance);
-        abort();
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
     }
     object *fname = __pop();
     object *uncompiled_fn = __pop();
@@ -387,7 +400,8 @@ void call(context_stack *cs, long variance) {
         printf("Cannot call function: ");
         print_object(fn);
         printf("\n");
-        abort();
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
     }
     if (otype(fn) == O_FN_COMPILED) {
         compiled_chunk *cc = oval_fn_compiled(fn);
@@ -419,7 +433,8 @@ void call(context_stack *cs, long variance) {
         print_object(fn);
         printf("\n");
         dump_stack();
-        abort();
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
     }
 }
 
@@ -431,7 +446,8 @@ void resolve(context_stack *cs) {
     }
     else {
         printf("Error: Symbol %s is not bound.\n", string_ptr(oval_symbol(sym)));
-        abort();
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
     }
 }
 
@@ -440,7 +456,8 @@ void vm_macroexpand_rec(context_stack *cs, long rec) {
     object *o = __top();
     if(rec >= 4096) {
         printf("Cannot expand macro. Nesting too deep.\n");
-        abort();
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
     }
     rec++;
     if(otype(o) == O_CONS) {
@@ -463,7 +480,8 @@ void vm_macroexpand_rec(context_stack *cs, long rec) {
                 }
                 else {
                     printf("Expected exactly %ld arguments, but got %ld.\n", fn_cc->variance, num_args);
-                    abort();
+                    //abort();
+                    vm_error_impl(cs, interns("SIG-ERROR"));
                 }
             }
 
@@ -496,7 +514,8 @@ void vm_macroexpand_rec(context_stack *cs, long rec) {
 void vm_macroexpand(context_stack *cs, long variance) {
     if(variance != 1) {
         printf("Expected exactly 1 argument, but got %ld.\n", variance);
-        abort();
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
     }
     return vm_macroexpand_rec(cs, 0);
 }
@@ -507,7 +526,8 @@ void vm_gensym(context_stack *cs, long variance) {
     (void)cs;
     if(variance != 0) {
         printf("Expected exactly 0 arguments, but got %ld.\n", variance);
-        abort();
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
     }
 
     char *gensym = malloc(18); // 10 digits + "gensym-"(7) + \0
@@ -520,9 +540,13 @@ void vm_gensym(context_stack *cs, long variance) {
 void vm_error(context_stack *cs, long variance) {
     if(variance != 1) {
         printf("Expected exactly 1 argument, but got %ld.\n", variance);
-        abort();
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
     }
     object *sym = pop();
+    vm_error_impl(cs, sym);
+}
+void vm_error_impl(context_stack *cs, object *sym) {
     //printf("Calling vm_error(%ld).\n", trap_stack_off);
     for(ssize_t i = trap_stack_off - 1; i >= 0; i--) {
 //        printf("Checking trap_stack[%lu].\n", i);
@@ -537,13 +561,14 @@ void vm_error(context_stack *cs, long variance) {
             pop_context_to_level(cs, trap_stack[i].context_off);
             trap_stack_off = trap_stack[i].trap_stack_off;
             s_off = trap_stack[i].s_off;
-            //printf("Long jumping.\n");
             longjmp(trap_stack[i].buff, 3);
         }
     }
 
-    printf(" FAILED TO CATCH ERROR! ABORTING!\n");
-    abort();
+    printf(" FAILED TO CATCH ERROR: ");
+    print_object(sym);
+    printf(" ABORTING!\n");
+    abort(); // This has to be an abort. We can't continue.
 }
 
 jmp_buf *vm_push_trap(context_stack *cs, object *sym) {
@@ -561,11 +586,22 @@ jmp_buf *vm_push_trap(context_stack *cs, object *sym) {
 void vm_eval(context_stack *cs, long variance) {
     if(variance != 1) {
         printf("Expected exactly 1 argument, but got %ld.\n", variance);
-        abort();
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
     }
     push(lookup_fn(cs, interns("MACROEXPAND")));
     call(cs, 1);
+
     compiled_chunk *cc = new_compiled_chunk();
+
+    // We need to catch any errors to deallocate the chunk and rethrow.
+    jmp_buf *trap = vm_push_trap(cs, obj_nil());
+    int ret = setjmp(*trap);
+    if(ret) {
+        free_compiled_chunk(cc);
+        vm_error_impl(cs, interns("SIG-ERROR"));
+    }
+    
     object *o = __pop();
     compile_form(cc, cs, o);
     run_vm(cs, cc);
@@ -577,7 +613,8 @@ void vm_read(context_stack *cs, long variance) {
     (void)cs;
     if(variance != 0) {
         printf("Expected exactly 0 arguments, but got %ld.\n", variance);
-        abort();
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
     }
     object *o = next_form(NULL);
     if(o) {
@@ -593,7 +630,8 @@ void vm_print(context_stack *cs, long variance) {
     (void)cs;
     if(variance != 1) {
         printf("Expected exactly 1 argument, but got %ld.\n", variance);
-        abort();
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
     }
     print_object(__pop());
 }
