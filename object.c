@@ -5,6 +5,7 @@
 #include "compiler.h"
 #include "map.h"
 #include "gc.h"
+#include "threaded_vm.h"
 
 typedef struct cons cons;
 struct cons {
@@ -157,7 +158,8 @@ object *new_object_list(size_t len, ...) {
     for(size_t i = 0; i < len; i++) {
         object *next = new_object_cons(va_arg(ap, object *), obj_nil());
         if(current) {
-            osetcdr(current, next);
+            setcdr(current->c, next);
+            //osetcdr(current, next);
         }
         current = next;
         if(!start) start=current;
@@ -170,62 +172,95 @@ enum obj_type otype(object *o) {
     return o->type;
 }
 
-string *oval_symbol(object *o) {
+const char *otype_str(enum obj_type t) {
+    switch(t) {
+    case O_SYM:
+        return "symbol";
+    case O_STR:
+        return "string";
+    case O_NUM:
+        return "number";
+    case O_CONS:
+        return "cons cell";
+    case O_FN:
+        return "uncompiled fn";
+    case O_FN_NATIVE:
+        return "native fn";
+    case O_KEYWORD:
+        return "keyword";
+    case O_MACRO:
+        return "uncompiled macro";
+    case O_FN_COMPILED:
+        return "compiled fn";
+    case O_MACRO_COMPILED:
+        return "compiled macro";
+    case O_STACKOFFSET:
+        return "stack offset";
+    }
+}
+
+string *oval_symbol(context_stack *cs, object *o) {
     if(o->type != O_SYM) {
         printf("Expected sym, but have: ");
         print_object(o);
         printf("\n");
-        abort();
+//        abort();
+        vm_error_impl(cs, o);
     }
     return o->str;
 }
 
-string *oval_keyword(object *o) {
+string *oval_keyword(context_stack *cs, object *o) {
     if(o->type != O_KEYWORD) {
         printf("Expected keyword, but have: ");
         print_object(o);
         printf("\n");
-        abort();
+        //abort();
+        vm_error_impl(cs, o);
     }
     return o->str;
 }
 
-string *oval_string(object *o) {
+string *oval_string(context_stack *cs, object *o) {
     if(o->type != O_STR) {
         printf("Expected string, but have: ");
         print_object(o);
         printf("\n");
-        abort();
+        //abort();
+        vm_error_impl(cs, o);
     }
     return o->str;
 }
 
-long oval_long(object *o) {
+long oval_long(context_stack *cs, object *o) {
     if(o->type != O_NUM) {
         printf("Expected number, but have: ");
         print_object(o);
         printf("\n");
-        abort();
+        //abort();
+        vm_error_impl(cs, o);
     }
     return o->num;
 }
 
-long oval_stackoffset(object *o) {
+long oval_stackoffset(context_stack *cs, object *o) {
     if(o->type != O_STACKOFFSET) {
         printf("Expected stackoffset, but have: ");
         print_object(o);
         printf("\n");
-        abort();
+        //abort();
+        vm_error_impl(cs, o);
     }
     return o->num;
 }
 
-void (*oval_native(object *o))(void *, long) {
+void (*oval_native(context_stack *cs, object *o))(void *, long) {
     if(o->type != O_FN_NATIVE) {
         printf("Expected number, but have: ");
         print_object(o);
         printf("\n");
-        abort();
+        //abort();
+        vm_error_impl(cs, o);
     }
     return o->native;
 }
@@ -244,12 +279,13 @@ object *oval_fn_body(object *o) {
     return cdr(cell);
 }
 
-compiled_chunk *oval_fn_compiled(object *o) {
+compiled_chunk *oval_fn_compiled(context_stack *cs, object *o) {
     if(o->type != O_FN_COMPILED && o->type != O_MACRO_COMPILED) {
         printf("Expected compiled function, but have: ");
         print_object(o);
         printf("\n");
-        abort();
+        //abort();
+        vm_error_impl(cs, o);
     }
     return o->cc;
 }
@@ -266,7 +302,7 @@ compiled_chunk *oval_macro_compiled(object *o) {
     return o->cc;
 }
 
-object *ocar(object *o) {
+object *ocar(context_stack *cs, object *o) {
     if(o == obj_nil()) {
         return obj_nil();
     }
@@ -274,12 +310,13 @@ object *ocar(object *o) {
         printf("Expected CONS cell, but have: ");
         print_object(o);
         printf("\n");
-        abort();
+        //abort();
+        vm_error_impl(cs, o);
     }
     return car(o->c);
 }
 
-object *ocdr(object *o) {
+object *ocdr(context_stack *cs, object *o) {
     if(o == obj_nil()) {
         return obj_nil();
     }
@@ -287,28 +324,31 @@ object *ocdr(object *o) {
         printf("Expected CONS cell, but have: ");
         print_object(o);
         printf("\n");
-        abort();
+        //abort();
+        vm_error_impl(cs, o);
     }
     return cdr(o->c);
 }
 
-object *osetcar(object *o, object *car) {
+object *osetcar(context_stack *cs, object *o, object *car) {
     if(o->type != O_CONS) {
         printf("Expected CONS cell, but have: ");
         print_object(o);
         printf("\n");
-        abort();
+        //abort();
+        vm_error_impl(cs, o);
     }
     setcar(o->c, car);
     return car;
 }
 
-object *osetcdr(object *o, object *cdr) {
+object *osetcdr(context_stack *cs, object *o, object *cdr) {
     if(o->type != O_CONS) {
         printf("Expected CONS cell, but have: ");
         print_object(o);
         printf("\n");
-        abort();
+        //abort();
+        vm_error_impl(cs, o);
     }
     setcdr(o->c, cdr);
     return cdr;

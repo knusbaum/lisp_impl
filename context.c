@@ -54,7 +54,7 @@ void bind_native_fn(context_stack *cs, object *sym, void (*fn)(context_stack *, 
     // Put in slot 0. Function bindings should always be *global*
     object *o =  new_object(O_FN_NATIVE, fn);
     map_put(cs->cstack[0]->funcs, sym, o);
-    object_set_name(o, strdup(string_ptr(oval_symbol(sym))));
+    object_set_name(o, strdup(string_ptr(oval_symbol(cs, sym))));
 }
 
 void bind_fn(context_stack *cs, object *sym, object *fn) {

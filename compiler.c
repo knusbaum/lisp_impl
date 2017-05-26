@@ -193,7 +193,7 @@ void bs_resolve(compiled_chunk *cc, context_stack *cs, object *sym) {
     if(otype(var_stacklevel) == O_STACKOFFSET) {
 
         //printf("Resolving to: %ld, %ld from top of stack (%ld): (%p)\n", oval_stackoffset(var_stacklevel), cc->stacklevel - oval_stackoffset(var_stacklevel), cc->stacklevel, var_stacklevel);
-        bs_push_from_stack(cc, cc->stacklevel - oval_stackoffset(var_stacklevel));
+        bs_push_from_stack(cc, cc->stacklevel - oval_stackoffset(cs, var_stacklevel));
     }
     else if(map_get(special_syms, sym) != NULL) {
         bs_push(cc, sym);
@@ -280,11 +280,11 @@ long fn_bind_params(compiled_chunk *cc, context_stack *cs, object *curr, long va
 
     object *rest = interns("&REST"); // Refactor. Shouldn't be calling interns here.
 
-    object *param = ocar(curr);
+    object *param = ocar(cs, curr);
     if(param == rest) {
         // We have a variadic function. Mark it and handle further args.
-        curr = ocdr(curr);
-        param = ocar(curr);
+        curr = ocdr(cs, curr);
+        param = ocar(cs, curr);
         if(curr == obj_nil() || param == obj_nil()) {
             printf("Must supply a symbol to bind for &REST.\n");
             //abort();
@@ -292,7 +292,7 @@ long fn_bind_params(compiled_chunk *cc, context_stack *cs, object *curr, long va
         }
         bs_bind(cc, cs, param);
         cc->stacklevel++;
-        curr = ocdr(curr);
+        curr = ocdr(cs, curr);
         if(curr != obj_nil()) {
             printf("Expected end of list, but have: ");
             print_object(curr);
@@ -306,7 +306,7 @@ long fn_bind_params(compiled_chunk *cc, context_stack *cs, object *curr, long va
 
     bs_bind(cc, cs, param);
     cc->stacklevel++;
-    variance = fn_bind_params(cc, cs, ocdr(curr), variance);
+    variance = fn_bind_params(cc, cs, ocdr(cs, curr), variance);
     variance++;
 
     return variance;
@@ -322,12 +322,12 @@ void fn_call(compiled_chunk *cc, context_stack *cs, object *fn) {
     cc->stacklevel--;
 
     int first_form = 1;
-    for(; fbody != obj_nil(); fbody = ocdr(fbody)) {
+    for(; fbody != obj_nil(); fbody = ocdr(cs, fbody)) {
         if(!first_form) {
             bs_pop(cc);
         }
         first_form = 0;
-        object *form = ocar(fbody);
+        object *form = ocar(cs, fbody);
         compile_bytecode(cc, cs, form);
     }
     context *c = pop_context(cs);
@@ -360,23 +360,23 @@ void compile_fn(compiled_chunk *fn_cc, context_stack *cs, object *fn) {
 }
 
 static void vm_let(compiled_chunk *cc, context_stack *cs, object *o) {
-    object *letlist = ocar(ocdr(o));
+    object *letlist = ocar(cs, ocdr(cs, o));
     long pushlen = 0;
-    for(object *frm = letlist; frm != obj_nil(); frm = ocdr(frm)) {
-        object *assign = ocar(frm);
-        object *sym = ocar(assign);
-        compile_bytecode(cc, cs, ocar(ocdr(assign)));
+    for(object *frm = letlist; frm != obj_nil(); frm = ocdr(cs, frm)) {
+        object *assign = ocar(cs, frm);
+        object *sym = ocar(cs, assign);
+        compile_bytecode(cc, cs, ocar(cs, ocdr(cs, assign)));
         bs_bind(cc, cs, sym);
         pushlen++;
     }
     int first_time = 1;
-    for(object *body = ocdr(ocdr(o)); body != obj_nil(); body = ocdr(body)) {
+    for(object *body = ocdr(cs, ocdr(cs, o)); body != obj_nil(); body = ocdr(cs, body)) {
         if(!first_time) {
             // Pop the previous result. It will be unused. (only the last form is "returned.")
             bs_pop(cc);
         }
         first_time=0;
-        compile_bytecode(cc, cs, ocar(body));
+        compile_bytecode(cc, cs, ocar(cs, body));
 
     }
     bs_chew_top(cc, pushlen);
@@ -402,9 +402,9 @@ static void bind_vars_for_closure(compiled_chunk *cc, context_stack *cs) {
 
 static void vm_fn(compiled_chunk *cc, context_stack *cs, object *o) {
     (void)cc;
-    object *fname = ocar(ocdr(o));
-    object *fargs = ocar(ocdr(ocdr(o)));
-    object *body = ocdr(ocdr(ocdr(o)));
+    object *fname = ocar(cs, ocdr(cs, o));
+    object *fargs = ocar(cs, ocdr(cs, ocdr(cs, o)));
+    object *body = ocdr(cs, ocdr(cs, ocdr(cs, o)));
     if(otype(fname) != O_SYM) {
         printf("Cannot bind function to: ");
         print_object(fname);
@@ -430,20 +430,20 @@ static void vm_fn(compiled_chunk *cc, context_stack *cs, object *o) {
 }
 
 void vm_if(compiled_chunk *cc, context_stack *cs, object *o) {
-    object *cond = ocdr(o);
-    object *true_branch = ocdr(cond);
-    object *false_branch = ocar(ocdr(true_branch)); // Will be nil if there is no else (works)
+    object *cond = ocdr(cs, o);
+    object *true_branch = ocdr(cs, cond);
+    object *false_branch = ocar(cs, ocdr(cs, true_branch)); // Will be nil if there is no else (works)
 
     char *false_branch_lab = mk_label();
     char *end_branch_lab = mk_label();
 
     // Conditional
-    compile_bytecode(cc, cs, ocar(cond));
+    compile_bytecode(cc, cs, ocar(cs, cond));
     bs_go_if_nil(cc, false_branch_lab);
     long stackoff = cc->stacklevel;
 
     // True branch
-    compile_bytecode(cc, cs, ocar(true_branch));
+    compile_bytecode(cc, cs, ocar(cs, true_branch));
     bs_go(cc, end_branch_lab);
 
     // False branch
@@ -456,9 +456,9 @@ void vm_if(compiled_chunk *cc, context_stack *cs, object *o) {
 
 void vm_defmacro(compiled_chunk *cc, context_stack *cs, object *o) {
     (void)cc;
-    object *fname = ocar(ocdr(o));
-    object *fargs = ocar(ocdr(ocdr(o)));
-    object *body = ocdr(ocdr(ocdr(o)));
+    object *fname = ocar(cs, ocdr(cs, o));
+    object *fargs = ocar(cs, ocdr(cs, ocdr(cs, o)));
+    object *body = ocdr(cs, ocdr(cs, ocdr(cs, o)));
     if(otype(fname) != O_SYM) {
         printf("Cannot bind function to: ");
         print_object(fname);
@@ -486,18 +486,18 @@ void vm_defmacro(compiled_chunk *cc, context_stack *cs, object *o) {
 int vm_backtick(compiled_chunk *cc, context_stack *cs, object *o) {
     switch(otype(o)) {
     case O_CONS:
-        if(ocar(o) == vm_s_comma) {
-            compile_bytecode(cc, cs, ocar(ocdr(o)));
+        if(ocar(cs, o) == vm_s_comma) {
+            compile_bytecode(cc, cs, ocar(cs, ocdr(cs, o)));
             return 0;
         }
-        else if(ocar(o) == vm_s_comma_at) {
-            compile_bytecode(cc, cs, ocar(ocdr(o)));
+        else if(ocar(cs, o) == vm_s_comma_at) {
+            compile_bytecode(cc, cs, ocar(cs, ocdr(cs, o)));
             return 1;
         }
         else {
             bs_push(cc, obj_nil());
-            for(object *each = o; each != obj_nil(); each = ocdr(each)) {
-                int should_splice = vm_backtick(cc, cs, ocar(each));
+            for(object *each = o; each != obj_nil(); each = ocdr(cs, each)) {
+                int should_splice = vm_backtick(cc, cs, ocar(cs, each));
                 (void)should_splice;
                 if(should_splice) {
                     bs_push(cc, lookup_fn(cs, interns("SPLICE")));
@@ -522,10 +522,10 @@ void vm_for(compiled_chunk *cc, context_stack *cs, object *o) {
     (void)cs;
     (void)o;
     (void)cc;
-    object *for_args = ocar(ocdr(o));
-    object *setup = ocar(for_args);
-    object *cond = ocar(ocdr(for_args));
-    object *step = ocar(ocdr(ocdr(for_args)));
+    object *for_args = ocar(cs, ocdr(cs, o));
+    object *setup = ocar(cs, for_args);
+    object *cond = ocar(cs, ocdr(cs, for_args));
+    object *step = ocar(cs, ocdr(cs, ocdr(cs, for_args)));
     printf("Setup: ");
     print_object(setup);
     printf("\nCond: ");
@@ -536,37 +536,37 @@ void vm_for(compiled_chunk *cc, context_stack *cs, object *o) {
 }
 
 void vm_catch(compiled_chunk *cc, context_stack *cs, object *o) {
-    object *caught = ocdr(o);
-    object *wrapped_form = ocdr(caught);
-    object *catch_branch = ocdr(wrapped_form);
+    object *caught = ocdr(cs, o);
+    object *wrapped_form = ocdr(cs, caught);
+    object *catch_branch = ocdr(cs, wrapped_form);
 
     char *catch_branch_lab = mk_label();
     char *end_lab = mk_label();
 
     // Catch form
-    compile_bytecode(cc, cs, ocar(caught));
+    compile_bytecode(cc, cs, ocar(cs, caught));
     bs_catch(cc);
     bs_go_if_not_nil(cc, catch_branch_lab);
     long stackoff = cc->stacklevel;
 
     // Wrapped form
-    compile_bytecode(cc, cs, ocar(wrapped_form));
+    compile_bytecode(cc, cs, ocar(cs, wrapped_form));
     bs_pop_catch(cc);
     bs_go(cc, end_lab);
 
     // Catch Branch
     cc->stacklevel = stackoff;
     bs_label(cc, catch_branch_lab);
-    compile_bytecode(cc, cs, ocar(catch_branch));
+    compile_bytecode(cc, cs, ocar(cs, catch_branch));
 
     bs_label(cc, end_lab);
 }
 
 static void compile_cons(compiled_chunk *cc, context_stack *cs, object *o) {
-    object *func = ocar(o);
+    object *func = ocar(cs, o);
 
     if(func == vm_s_quote) {
-        bs_push(cc, ocar(ocdr(o)));
+        bs_push(cc, ocar(cs, ocdr(cs, o)));
     }
     else if(func == vm_s_let) {
         vm_let(cc, cs, o);
@@ -581,7 +581,7 @@ static void compile_cons(compiled_chunk *cc, context_stack *cs, object *o) {
         vm_defmacro(cc, cs, o);
     }
     else if(func == vm_s_backtick) {
-        vm_backtick(cc, cs, ocar(ocdr(o)));
+        vm_backtick(cc, cs, ocar(cs, ocdr(cs, o)));
     }
     else if(func == vm_s_comma) {
         printf("Error: Comma outside of a backtick.\n");
@@ -595,9 +595,9 @@ static void compile_cons(compiled_chunk *cc, context_stack *cs, object *o) {
     else if(func == interns("+")) {
         long num_args = 0;
         object *curr;
-        for(curr = ocdr(o); curr != obj_nil(); curr = ocdr(curr)) {
+        for(curr = ocdr(cs, o); curr != obj_nil(); curr = ocdr(cs, curr)) {
             num_args++;
-            compile_bytecode(cc, cs, ocar(curr));
+            compile_bytecode(cc, cs, ocar(cs, curr));
         }
 
         bs_add(cc, num_args);
@@ -605,9 +605,9 @@ static void compile_cons(compiled_chunk *cc, context_stack *cs, object *o) {
     else if(func == interns("-")) {
         long num_args = 0;
         object *curr;
-        for(curr = ocdr(o); curr != obj_nil(); curr = ocdr(curr)) {
+        for(curr = ocdr(cs, o); curr != obj_nil(); curr = ocdr(cs, curr)) {
             num_args++;
-            compile_bytecode(cc, cs, ocar(curr));
+            compile_bytecode(cc, cs, ocar(cs, curr));
         }
 
         bs_subtract(cc, num_args);
@@ -615,9 +615,9 @@ static void compile_cons(compiled_chunk *cc, context_stack *cs, object *o) {
     else if(func == interns("*")) {
         long num_args = 0;
         object *curr;
-        for(curr = ocdr(o); curr != obj_nil(); curr = ocdr(curr)) {
+        for(curr = ocdr(cs, o); curr != obj_nil(); curr = ocdr(cs, curr)) {
             num_args++;
-            compile_bytecode(cc, cs, ocar(curr));
+            compile_bytecode(cc, cs, ocar(cs, curr));
         }
 
         bs_multiply(cc, num_args);
@@ -625,9 +625,9 @@ static void compile_cons(compiled_chunk *cc, context_stack *cs, object *o) {
     else if(func == interns("/")) {
         long num_args = 0;
         object *curr;
-        for(curr = ocdr(o); curr != obj_nil(); curr = ocdr(curr)) {
+        for(curr = ocdr(cs, o); curr != obj_nil(); curr = ocdr(cs, curr)) {
             num_args++;
-            compile_bytecode(cc, cs, ocar(curr));
+            compile_bytecode(cc, cs, ocar(cs, curr));
         }
 
         bs_divide(cc, num_args);
@@ -635,9 +635,9 @@ static void compile_cons(compiled_chunk *cc, context_stack *cs, object *o) {
     else if(func == interns("=")) {
         long num_args = 0;
         object *curr;
-        for(curr = ocdr(o); curr != obj_nil(); curr = ocdr(curr)) {
+        for(curr = ocdr(cs, o); curr != obj_nil(); curr = ocdr(cs, curr)) {
             num_args++;
-            compile_bytecode(cc, cs, ocar(curr));
+            compile_bytecode(cc, cs, ocar(cs, curr));
         }
 
         bs_num_eq(cc, num_args);
@@ -645,19 +645,19 @@ static void compile_cons(compiled_chunk *cc, context_stack *cs, object *o) {
     else {
         object *fn = lookup_fn(cs, func);
         if(!fn) {
-            printf("No such function: %s\n", string_ptr(oval_symbol(func)));
+            printf("No such function: %s\n", string_ptr(oval_symbol(cs, func)));
             //abort();
             vm_error_impl(cs, interns("SIG-ERROR"));
         }
 
         if(otype(fn) == O_FN_COMPILED) {
-            compiled_chunk *fn_cc = oval_fn_compiled(fn);
+            compiled_chunk *fn_cc = oval_fn_compiled(cs, fn);
 
             long num_args = 0;
             object *curr;
-            for(curr = ocdr(o); curr != obj_nil(); curr = ocdr(curr)) {
+            for(curr = ocdr(cs, o); curr != obj_nil(); curr = ocdr(cs, curr)) {
                 num_args++;
-                compile_bytecode(cc, cs, ocar(curr));
+                compile_bytecode(cc, cs, ocar(cs, curr));
             }
 
             if(num_args > fn_cc->variance) {
@@ -677,9 +677,9 @@ static void compile_cons(compiled_chunk *cc, context_stack *cs, object *o) {
         }
         else {
             int num_args = 0;
-            for(object *curr = ocdr(o); curr != obj_nil(); curr = ocdr(curr)) {
+            for(object *curr = ocdr(cs, o); curr != obj_nil(); curr = ocdr(cs, curr)) {
                 num_args++;
-                compile_bytecode(cc, cs, ocar(curr));
+                compile_bytecode(cc, cs, ocar(cs, curr));
             }
 
             bs_push(cc, fn);

@@ -164,17 +164,17 @@ void gc(context_stack *cs) {
         case O_STACKOFFSET:
             break;
         case O_CONS:
-             temp = ocar(grey);
-             if(gc_flag(temp) == GC_FLAG_WHITE) {
-                 set_gc_flag(temp, GC_FLAG_GREY);
-                 enqueue_grey_queue(temp);
-             }
-             temp = ocdr(grey);
-             if(gc_flag(temp) == GC_FLAG_WHITE) {
-                 set_gc_flag(temp, GC_FLAG_GREY);
-                 enqueue_grey_queue(temp);
-             }
-             break;
+            temp = ocar(NULL, grey);
+            if(gc_flag(temp) == GC_FLAG_WHITE) {
+                set_gc_flag(temp, GC_FLAG_GREY);
+                enqueue_grey_queue(temp);
+            }
+            temp = ocdr(NULL, grey);
+            if(gc_flag(temp) == GC_FLAG_WHITE) {
+                set_gc_flag(temp, GC_FLAG_GREY);
+                enqueue_grey_queue(temp);
+            }
+            break;
         case O_MACRO:
         case O_FN:
             temp = oval_fn_args(grey);
@@ -193,7 +193,7 @@ void gc(context_stack *cs) {
             //printf("O FN IS: ");
             //print_object(grey);
             //printf(" (%p)\n", grey);
-            cc = oval_fn_compiled(grey);
+            cc = oval_fn_compiled(NULL, grey);
             for(i = 0; i < cc->b_off; i++) {
                 if(cc->bs[i].has_arg && cc->bs[i].arg) {
                     if(gc_flag(cc->bs[i].arg) == GC_FLAG_WHITE) {

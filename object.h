@@ -9,6 +9,7 @@ typedef struct object object;
 
 //** NEED REFACTORING **/
 typedef struct compiled_chunk compiled_chunk;
+typedef struct context_stack context_stack;
 //** END REFACTORING **/
 
 enum obj_type {
@@ -38,24 +39,25 @@ object *new_object_macro(object *args, object *body);
 object *new_object_macro_compiled(compiled_chunk *cc);
 object *new_object_list(size_t len, ...);
 enum obj_type otype(object *o);
+const char *otype_str(enum obj_type);
 
-string *oval_symbol(object *o);
-string *oval_keyword(object *o);
-string *oval_string(object *o);
-long oval_long(object *o);
-long oval_stackoffset(object *o);
-void (*oval_native(object *o))(void *, long);
+string *oval_symbol(context_stack *cs, object *o);
+string *oval_keyword(context_stack *cs, object *o);
+string *oval_string(context_stack *cs, object *o);
+long oval_long(context_stack *cs, object *o);
+long oval_stackoffset(context_stack *cs, object *o);
+void (*oval_native(context_stack *cs, object *o))(void *, long);
 void (*oval_native_unsafe(object *o))(void *, long);
 object *oval_fn_args(object *o); // Also for getting macro args
 object *oval_fn_body(object *o); // Also for getting macro body
-compiled_chunk *oval_fn_compiled(object *o);
+compiled_chunk *oval_fn_compiled(context_stack *cs, object *o);
 compiled_chunk *oval_fn_compiled_unsafe(object *o);
 void oset_fn_compiled(object *o, compiled_chunk *cc);
 compiled_chunk *oval_macro_compiled(object *o);
-object *ocar(object *o);
-object *ocdr(object *o);
-object *osetcar(object *o, object *car);
-object *osetcdr(object *o, object *cdr);
+object *ocar(context_stack *cs, object *o);
+object *ocdr(context_stack *cs, object *o);
+object *osetcar(context_stack *cs, object *o, object *car);
+object *osetcdr(context_stack *cs, object *o, object *cdr);
 void print_object(object *o);
 
 /** Symbol Operations **/

@@ -179,7 +179,7 @@ static inline void vm_mult(context_stack *cs, long variance) {
     (void)cs;
     long val = 1;
     for(int i = 0; i < variance; i++) {
-        val *= oval_long(__pop());
+        val *= oval_long(cs, __pop());
     }
     __push(new_object_long(val));
 }
@@ -193,9 +193,9 @@ static inline void vm_div(context_stack *cs, long variance) {
     (void)cs;
     long val = 1;
     for(int i = 0; i < variance - 1; i++) {
-        val *= oval_long(__pop());
+        val *= oval_long(cs, __pop());
     }
-    val = oval_long(__pop()) / val;
+    val = oval_long(cs, __pop()) / val;
     __push(new_object_long(val));
 }
 
@@ -206,7 +206,7 @@ void vm_num_eq(context_stack *cs, long variance) {
         //abort();
         vm_error_impl(cs, interns("SIG-ERROR"));
     }
-    if(oval_long(__pop()) == oval_long(__pop())) {
+    if(oval_long(cs, __pop()) == oval_long(cs, __pop())) {
         __push(obj_t());
     }
     else {
@@ -222,7 +222,7 @@ void vm_num_gt(context_stack *cs, long variance) {
         interns("SIG-ERROR");
     }
     // args are reversed.
-    if(oval_long(__pop()) < oval_long(__pop())) {
+    if(oval_long(cs, __pop()) < oval_long(cs, __pop())) {
         __push(obj_t());
     }
     else {
@@ -238,7 +238,7 @@ void vm_num_lt(context_stack *cs, long variance) {
         vm_error_impl(cs, interns("SIG-ERROR"));
     }
     // args are reversed.
-    if(oval_long(__pop()) > oval_long(__pop())) {
+    if(oval_long(cs, __pop()) > oval_long(cs, __pop())) {
         __push(obj_t());
     }
     else {
@@ -270,10 +270,10 @@ void vm_append(context_stack *cs, long variance) {
         return;
     }
     object *curr = target;
-    while(ocdr(curr) != obj_nil()) {
-        curr=ocdr(curr);
+    while(ocdr(cs, curr) != obj_nil()) {
+        curr=ocdr(cs, curr);
     }
-    osetcdr(curr, cons);
+    osetcdr(cs, curr, cons);
     __push(target);
 }
 
@@ -292,10 +292,10 @@ void vm_splice(context_stack *cs, long variance) {
         return;
     }
     object *curr = target;
-    while(ocdr(curr) != obj_nil()) {
-        curr=ocdr(curr);
+    while(ocdr(cs, curr) != obj_nil()) {
+        curr=ocdr(cs, curr);
     }
-    osetcdr(curr, to_splice);
+    osetcdr(cs, curr, to_splice);
     __push(target);
 }
 
@@ -307,7 +307,7 @@ void vm_car(context_stack *cs, long variance) {
         vm_error_impl(cs, interns("SIG-ERROR"));
     }
     object *list = __pop();
-    __push(ocar(list));
+    __push(ocar(cs, list));
 }
 
 void vm_cdr(context_stack *cs, long variance) {
@@ -318,7 +318,7 @@ void vm_cdr(context_stack *cs, long variance) {
         vm_error_impl(cs, interns("SIG-ERROR"));
     }
     object *list = __pop();
-    __push(ocdr(list));
+    __push(ocdr(cs, list));
 }
 
 void vm_cons(context_stack *cs, long variance) {
@@ -343,7 +343,7 @@ void vm_length(context_stack *cs, long variance) {
     }
 
     long len = 0;
-    for(object *curr = __pop(); curr != obj_nil(); curr = ocdr(curr)) {
+    for(object *curr = __pop(); curr != obj_nil(); curr = ocdr(cs, curr)) {
         len++;
     }
     __push(new_object_long(len));
@@ -404,7 +404,7 @@ void call(context_stack *cs, long variance) {
         vm_error_impl(cs, interns("SIG-ERROR"));
     }
     if (otype(fn) == O_FN_COMPILED) {
-        compiled_chunk *cc = oval_fn_compiled(fn);
+        compiled_chunk *cc = oval_fn_compiled(cs, fn);
         if(cc->c) {
             push_existing_context(cs, cc->c);
         }
@@ -445,7 +445,7 @@ void resolve(context_stack *cs) {
         __push(val);
     }
     else {
-        printf("Error: Symbol %s is not bound.\n", string_ptr(oval_symbol(sym)));
+        printf("Error: Symbol %s is not bound.\n", string_ptr(oval_symbol(cs, sym)));
         //abort();
         vm_error_impl(cs, interns("SIG-ERROR"));
     }
@@ -461,17 +461,17 @@ void vm_macroexpand_rec(context_stack *cs, long rec) {
     }
     rec++;
     if(otype(o) == O_CONS) {
-        object *fsym = ocar(o);
+        object *fsym = ocar(cs, o);
         object *func = lookup_fn(cs, fsym);
         if(func && otype(func) == O_MACRO_COMPILED) {
             // Don't eval the arguments.
             long num_args = 0;
-            for(object *margs = ocdr(o); margs != obj_nil(); margs = ocdr(margs)) {
-                push(ocar(margs));
+            for(object *margs = ocdr(cs, o); margs != obj_nil(); margs = ocdr(cs, margs)) {
+                push(ocar(cs, margs));
                 num_args++;
             }
 
-            compiled_chunk *fn_cc = oval_fn_compiled(func);
+            compiled_chunk *fn_cc = oval_fn_compiled(cs, func);
             if(num_args > fn_cc->variance) {
                 if(fn_cc->flags & CC_FLAG_HAS_REST) {
                     push(lookup_fn(cs, interns("LIST")));
@@ -485,7 +485,7 @@ void vm_macroexpand_rec(context_stack *cs, long rec) {
                 }
             }
 
-            run_vm(cs, oval_fn_compiled(func));
+            run_vm(cs, oval_fn_compiled(cs, func));
 
             object *exp = pop();
             for(int i = 0; i < num_args; i++) {
@@ -496,12 +496,12 @@ void vm_macroexpand_rec(context_stack *cs, long rec) {
             vm_macroexpand_rec(cs, rec);
         }
         else {
-            for(object *margs = o; margs != obj_nil(); margs = ocdr(margs)) {
-                push(ocar(margs));
+            for(object *margs = o; margs != obj_nil(); margs = ocdr(cs, margs)) {
+                push(ocar(cs, margs));
                 vm_macroexpand_rec(cs, rec);
                 set_gc_flag(__top(), GC_FLAG_BLACK);
                 object *o = pop();
-                osetcar(margs, o);
+                osetcar(cs, margs, o);
             }
             return;
         }
@@ -557,6 +557,10 @@ void vm_error_impl(context_stack *cs, object *sym) {
 //        printf("\n");
         if(sym == trap_stack[i].catcher
            || trap_stack[i].catcher == obj_nil()) {
+            if(!cs) {
+                printf("Cannot handle error without context_stack.\n");
+                abort();
+            }
             // Someone wants to catch this error.
             pop_context_to_level(cs, trap_stack[i].context_off);
             trap_stack_off = trap_stack[i].trap_stack_off;
@@ -793,7 +797,7 @@ add:
     //printf("%ld@%p ADD (%ld)\n", bs - cc->bs, cc, bs->variance);
     mathvar = 0;
     for(i = 0; i < bs->variance; i++) {
-        mathvar += oval_long(__top());
+        mathvar += oval_long(cs, __top());
         __pop();
     }
     __push(new_object_long(mathvar));
@@ -802,9 +806,9 @@ subtract:
     //printf("%ld@%p SUBTRACT (%ld)\n", bs - cc->bs, cc, bs->variance);
     mathvar = 0;
     for(i = 0; i < bs->variance - 1; i++) {
-        mathvar += oval_long(__pop());
+        mathvar += oval_long(cs, __pop());
     }
-    mathvar = oval_long(__pop()) - mathvar;
+    mathvar = oval_long(cs, __pop()) - mathvar;
     __push(new_object_long(mathvar));
     NEXTI;
 multiply:
@@ -818,9 +822,9 @@ divide:
 num_eq:
     //printf("%ld@%p NUM_EQ\n", bs - cc->bs, cc);
     truthiness = 1;
-    mathvar = oval_long(__pop());
+    mathvar = oval_long(cs, __pop());
     for(long i = 0; i < bs->variance - 1; i++) {
-        truthiness = truthiness && (mathvar == oval_long(__pop()));
+        truthiness = truthiness && (mathvar == oval_long(cs, __pop()));
     }
     if(truthiness) {
         __push(obj_t());
