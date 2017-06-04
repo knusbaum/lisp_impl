@@ -197,6 +197,7 @@ const char *otype_str(enum obj_type t) {
     case O_STACKOFFSET:
         return "stack offset";
     }
+    return "aoeuoue";
 }
 
 string *oval_symbol(context_stack *cs, object *o) {

@@ -36,11 +36,20 @@ int is_sym_char(int c) {
         c != ')';
 }
 
+static void skip_comments(struct lexer *lex) {
+    if(lex->look == ';') {
+        while(lex->look != '\n') {
+            lex->look = getc(lex->f);
+        }
+    }
+}
+
 //int lex->look;
 static int look(struct lexer *lex) {
     //printf("[lexer.c][look] Looking.\n");
     if(!lex->look) {
         lex->look = getc(lex->f);
+        skip_comments(lex);
     }
     return lex->look;
 }
@@ -49,9 +58,11 @@ static int get_char(struct lexer *lex) {
     //printf("[lexer.c][get_char] Getting char.\n");
     if(!lex->look) {
         lex->look = getc(lex->f);
+        skip_comments(lex);
     }
     int ret = lex->look;
     lex->look = getc(lex->f);
+    skip_comments(lex);
     //printf("[lexer.c][get_char] Got: %c\n", ret);
     return ret;
 }
@@ -98,6 +109,7 @@ string *parse_string(struct lexer *lex) {
         case '\\':
             match(lex, '\\');
             append_escaped(s, look(lex));
+            get_char(lex);
             break;
         default:
             string_append(s, c);

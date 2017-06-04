@@ -536,15 +536,20 @@ void vm_for(compiled_chunk *cc, context_stack *cs, object *o) {
 }
 
 void vm_catch(compiled_chunk *cc, context_stack *cs, object *o) {
-    object *caught = ocdr(cs, o);
+    object *caught = ocdr(cs, o); // list of 2
     object *wrapped_form = ocdr(cs, caught);
     object *catch_branch = ocdr(cs, wrapped_form);
 
     char *catch_branch_lab = mk_label();
     char *end_lab = mk_label();
 
+
+    caught = ocar(cs, caught);
+    object *caught_type = ocar(cs, caught);
+    object *caught_bind = ocar(cs, ocdr(cs, caught));
+    
     // Catch form
-    compile_bytecode(cc, cs, ocar(cs, caught));
+    compile_bytecode(cc, cs, caught_type);
     bs_catch(cc);
     bs_go_if_not_nil(cc, catch_branch_lab);
     long stackoff = cc->stacklevel;
@@ -556,6 +561,7 @@ void vm_catch(compiled_chunk *cc, context_stack *cs, object *o) {
 
     // Catch Branch
     cc->stacklevel = stackoff;
+    bs_bind(cc, cs, caught_bind); // Bind the sym to the error.
     bs_label(cc, catch_branch_lab);
     compile_bytecode(cc, cs, ocar(cs, catch_branch));
 

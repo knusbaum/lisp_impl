@@ -30,7 +30,9 @@ int main(void) {
         //printf("RET IS: %d\n", ret);
         if(ret) {
             //printf("Continuing!\n");
-            printf("CAUGHT AN ERROR.\n");
+            printf("CAUGHT AN ERROR: ");
+            print_object(pop());
+            printf("\n");
             continue;
         }
         //printf("CC: %p\n", cc);

@@ -1,3 +1,7 @@
+(defmacro progn (&rest body)
+  `(let nil
+     ,@body))
+
 (defmacro cond (&rest args)
   (let ((cond-pair (car args))
         (rest (cdr args)))
@@ -28,8 +32,22 @@
               `(and ,@rest)
               (car rest)))))
 
+;; The finally form will be executed even if
+;; an error is thrown out of the body.
+(defmacro unwind-protect (body finally)
+  (let ((errsym (gensym)))
+    `(progn
+       (catch (nil ,errsym)
+         ,body
+         (progn
+           ,finally
+           (throw ,errsym)))
+       ,finally)))
 
+;; Sample naive fibonacci sequence implementation.
 (fn fib (x)
     (cond ((< x 3) 1)
           (t (+ (fib (- x 1))
                 (fib (- x 2))))))
+
+;; (fib 40)

@@ -65,18 +65,13 @@ void gc(context_stack *cs) {
     gq_head = 0;
     gq_size = INIT_STACK;
 
-    //printf("[gc]Locking GC MUT:\n");
     pthread_mutex_lock(get_gc_mut());
     size_t local_o_off = o_off;
-    pthread_mutex_unlock(get_gc_mut());
+    //pthread_mutex_unlock(get_gc_mut());
     
-    //printf("[gc]Locket GC MUT:\n");
     for(size_t i = 0; i < local_o_off; i++) {
         set_gc_flag(olist[i], GC_FLAG_WHITE);
     }
-    //printf("[gc]UNLocking GC MUT:\n");
-    
-    //printf("[gc]UNLocked GC MUT:\n");
 
     struct sym_val_pair svp;
     
@@ -250,7 +245,7 @@ void gc(context_stack *cs) {
 //        }
 //    }
     //printf("[gc]Locking GC MUT:\n");
-    pthread_mutex_lock(get_gc_mut());
+    //pthread_mutex_lock(get_gc_mut());
     //printf("[gc]Locked GC MUT:\n");
     size_t new_olist_size = o_size;
     object **new_olist = malloc(new_olist_size * sizeof (object *));

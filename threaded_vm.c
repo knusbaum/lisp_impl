@@ -100,6 +100,8 @@ void vm_print(context_stack *cs, long variance);
 void vm_macroexpand(context_stack *cs, long variance);
 void vm_gensym(context_stack *cs, long variance);
 void vm_error(context_stack *cs, long variance);
+void vm_open(context_stack *cs, long variance);
+void vm_close(context_stack *cs, long variance);
 
 parser *stdin_parser;
 
@@ -136,6 +138,9 @@ void vm_init(context_stack *cs) {
     bind_native_fn(cs, interns("MACROEXPAND"), vm_macroexpand);
     bind_native_fn(cs, interns("GENSYM"), vm_gensym);
     bind_native_fn(cs, interns("ERROR"), vm_error);
+    bind_native_fn(cs, interns("OPEN"), vm_open);
+    bind_native_fn(cs, interns("CLOSE"), vm_close);
+    
 
     addrs = get_vm_addrs();
     special_syms = map_create(sym_equal);
@@ -569,6 +574,7 @@ void vm_error_impl(context_stack *cs, object *sym) {
             pop_context_to_level(cs, trap_stack[i].context_off);
             trap_stack_off = trap_stack[i].trap_stack_off;
             s_off = trap_stack[i].s_off;
+            push(sym);
             longjmp(trap_stack[i].buff, 3);
         }
     }
@@ -589,6 +595,14 @@ jmp_buf *vm_push_trap(context_stack *cs, object *sym) {
     //    printf("CAUGHT ERROR!\n");
     //    abort();
     //}
+}
+
+void vm_open(context_stack *cs, long variance) {
+
+}
+
+void vm_close(context_stack *cs, long variance) {
+
 }
 
 void vm_eval(context_stack *cs, long variance) {
