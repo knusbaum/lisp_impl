@@ -771,7 +771,7 @@ void *___vm(context_stack *cs, compiled_chunk *cc, int _get_vm_addrs) {
 
     struct binstr *bs = cc->bs;
     struct binstr *bs_saved;
-    size_t saved_stackoff;
+    volatile size_t saved_stackoff;
 
     goto *bs->instr;
     return NULL;
