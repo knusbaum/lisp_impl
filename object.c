@@ -36,6 +36,15 @@ cons *new_cons() {
     return c;
 }
 
+struct stream {
+    char is_open;
+};
+
+struct file_stream {
+    struct stream s;
+    FILE *fstream;
+};
+
 struct object {
     char gcflag;
     enum obj_type type;
@@ -45,6 +54,7 @@ struct object {
         long num;
         void (*native)(void *, long);
         compiled_chunk *cc;
+        struct file_stream *fstream;
     };
     char *name;
 };
@@ -95,6 +105,9 @@ object *new_object(enum obj_type t, void *o) {
         break;
     case O_MACRO_COMPILED:
         ob->cc = o;
+        break;
+    case O_FSTREAM:
+        ob->fstream = o;
         break;
     }
     return ob;
@@ -196,8 +209,10 @@ const char *otype_str(enum obj_type t) {
         return "compiled macro";
     case O_STACKOFFSET:
         return "stack offset";
+    case O_FSTREAM:
+        return "file stream";
     }
-    return "aoeuoue";
+    return "??? corrupt object";
 }
 
 string *oval_symbol(context_stack *cs, object *o) {
@@ -206,7 +221,7 @@ string *oval_symbol(context_stack *cs, object *o) {
         print_object(o);
         printf("\n");
 //        abort();
-        vm_error_impl(cs, o);
+        vm_error_impl(cs, interns("TYPE-ERROR"));
     }
     return o->str;
 }
@@ -217,7 +232,7 @@ string *oval_keyword(context_stack *cs, object *o) {
         print_object(o);
         printf("\n");
         //abort();
-        vm_error_impl(cs, o);
+        vm_error_impl(cs, interns("TYPE-ERROR"));
     }
     return o->str;
 }
@@ -228,7 +243,7 @@ string *oval_string(context_stack *cs, object *o) {
         print_object(o);
         printf("\n");
         //abort();
-        vm_error_impl(cs, o);
+        vm_error_impl(cs, interns("TYPE-ERROR"));
     }
     return o->str;
 }
@@ -239,7 +254,7 @@ long oval_long(context_stack *cs, object *o) {
         print_object(o);
         printf("\n");
         //abort();
-        vm_error_impl(cs, o);
+        vm_error_impl(cs, interns("TYPE-ERROR"));
     }
     return o->num;
 }
@@ -250,7 +265,7 @@ long oval_stackoffset(context_stack *cs, object *o) {
         print_object(o);
         printf("\n");
         //abort();
-        vm_error_impl(cs, o);
+        vm_error_impl(cs, interns("TYPE-ERROR"));
     }
     return o->num;
 }
@@ -261,7 +276,7 @@ void (*oval_native(context_stack *cs, object *o))(void *, long) {
         print_object(o);
         printf("\n");
         //abort();
-        vm_error_impl(cs, o);
+        vm_error_impl(cs, interns("TYPE-ERROR"));
     }
     return o->native;
 }
@@ -286,7 +301,7 @@ compiled_chunk *oval_fn_compiled(context_stack *cs, object *o) {
         print_object(o);
         printf("\n");
         //abort();
-        vm_error_impl(cs, o);
+        vm_error_impl(cs, interns("TYPE-ERROR"));
     }
     return o->cc;
 }
@@ -312,7 +327,7 @@ object *ocar(context_stack *cs, object *o) {
         print_object(o);
         printf("\n");
         //abort();
-        vm_error_impl(cs, o);
+        vm_error_impl(cs, interns("TYPE-ERROR"));
     }
     return car(o->c);
 }
@@ -326,7 +341,7 @@ object *ocdr(context_stack *cs, object *o) {
         print_object(o);
         printf("\n");
         //abort();
-        vm_error_impl(cs, o);
+        vm_error_impl(cs, interns("TYPE-ERROR"));
     }
     return cdr(o->c);
 }
@@ -337,7 +352,7 @@ object *osetcar(context_stack *cs, object *o, object *car) {
         print_object(o);
         printf("\n");
         //abort();
-        vm_error_impl(cs, o);
+        vm_error_impl(cs, interns("TYPE-ERROR"));
     }
     setcar(o->c, car);
     return car;
@@ -349,7 +364,7 @@ object *osetcdr(context_stack *cs, object *o, object *cdr) {
         print_object(o);
         printf("\n");
         //abort();
-        vm_error_impl(cs, o);
+        vm_error_impl(cs, interns("TYPE-ERROR"));
     }
     setcdr(o->c, cdr);
     return cdr;
@@ -390,6 +405,9 @@ static void print_cdr(object *o) {
         break;
     case O_STACKOFFSET:
         printf(" . #<STACK_OFFSET: %ld>", o->num);
+        break;
+    case O_FSTREAM:
+        printf(" . #<FILE STREAM>");
         break;
     }
 }
@@ -448,8 +466,65 @@ void print_object(object *o) {
     case O_STACKOFFSET:
         printf("#<STACK_OFFSET: %ld>", o->num);
         break;
+    case O_FSTREAM:
+        printf("#<FILE STREAM>");
+        break;
     }
 }
+
+/** Stream Operations **/
+
+object *new_object_fstream(context_stack *cs, string *fname, char *mode) {
+    struct file_stream *fs = malloc(sizeof (struct file_stream));
+    FILE *f = fopen(string_ptr(fname), mode);
+    if(!f) {
+        perror("Couldn't open file: ");
+        vm_error_impl(cs, interns("FILE-OPEN-ERROR"));
+    }
+    fs->fstream = f;
+    fs->s.is_open = 1;
+    return new_object(O_FSTREAM, fs);
+}
+
+object *new_object_fstream_unsafe(context_stack *cs, FILE *f) {
+    (void)cs;
+    struct file_stream *fs = malloc(sizeof (struct file_stream));
+    fs->fstream = f;
+    fs->s.is_open = 1;
+    return new_object(O_FSTREAM, fs);
+}
+
+void fstream_close(context_stack *cs, object *o) {
+    if(o->type != O_FSTREAM) {
+        printf("Expected file stream, but have: ");
+        print_object(o);
+        printf("\n");
+        //abort();
+        vm_error_impl(cs, interns("TYPE-ERROR"));
+    }
+    if(o->fstream->s.is_open) {
+        fclose(o->fstream->fstream);
+        o->fstream->s.is_open = 0;
+    }
+    o->fstream->fstream = NULL;
+}
+
+FILE *fstream_file(context_stack *cs, object *o) {
+    if(o->type != O_FSTREAM) {
+        printf("Expected file stream, but have: ");
+        print_object(o);
+        printf("\n");
+        //abort();
+        vm_error_impl(cs, interns("TYPE-ERROR"));
+    }
+    if(!o->fstream->fstream) {
+        vm_error_impl(cs, interns("OPERATION-ON-CLOSED-STREAM-ERROR"));
+    }
+    return o->fstream->fstream;
+}
+
+
+/** Symbol Operations **/
 
 map_t *symbols;
 
@@ -520,6 +595,14 @@ void destroy_object(object *o) {
     case O_MACRO_COMPILED:
         //printf("\n\n!!!!!!!!!!!!!!!!!!!!!!!!Freeing compiled function!!!!!!!!!!!!!!!!\n\n");
         free_compiled_chunk(o->cc);
+        break;
+    case O_FSTREAM:
+        //printf("Destroying fstream.\n");
+        if(o->fstream->fstream) {
+            //printf("Closing unclosed FSTREAM.\n");
+            fclose(o->fstream->fstream);
+        }
+        free(o->fstream);
         break;
     }
     //memset(o, 0, sizeof (object));

@@ -27,6 +27,7 @@ typedef struct compiled_chunk {
     long variance;
     unsigned char flags;
     long stacklevel;
+    long saved_stacklevel;
     context *c;
 } compiled_chunk;
 
@@ -37,6 +38,7 @@ compiled_chunk *new_compiled_chunk();
 void free_compiled_chunk(compiled_chunk *c);
 void compile_fn(compiled_chunk *fn_cc, context_stack *cs, object *fn);
 compiled_chunk *repl(context_stack *cs);
+compiled_chunk *bootstrapper(context_stack *cs, FILE *bootstrap_file);
 
 map_t *get_internals();
 

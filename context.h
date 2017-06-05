@@ -34,6 +34,7 @@ object *bind_var(context_stack *cs, object *sym, object *var);
 object *lookup_fn(context_stack *cs, object *sym);
 void bind_native_fn(context_stack *cs, object *sym, void (*fn)(context_stack *, long));
 void bind_fn(context_stack *cs, object *sym, object *fn);
+void unbind_fn(context_stack *cs, object *sym);
 
 context_var_iterator *iterate_vars(context_stack *cs);
 context_var_iterator *context_var_iterator_next(context_var_iterator *cvi);

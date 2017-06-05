@@ -18,7 +18,7 @@ struct lexer *new_lexer(FILE *f) {
 }
 
 void destroy_lexer(struct lexer *lex) {
-    fclose(lex->f);
+    //fclose(lex->f);
     free(lex);
 }
 

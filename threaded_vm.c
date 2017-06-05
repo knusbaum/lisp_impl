@@ -140,14 +140,14 @@ void vm_init(context_stack *cs) {
     bind_native_fn(cs, interns("ERROR"), vm_error);
     bind_native_fn(cs, interns("OPEN"), vm_open);
     bind_native_fn(cs, interns("CLOSE"), vm_close);
-    
+
 
     addrs = get_vm_addrs();
     special_syms = map_create(sym_equal);
     map_put(special_syms, obj_t(), (void *)1);
     map_put(special_syms, obj_nil(), (void *)1);
 
-    stdin_parser = new_parser_file(stdin); 
+    stdin_parser = new_parser_file(stdin);
 }
 
 static inline void __push(object *o) {
@@ -155,11 +155,17 @@ static inline void __push(object *o) {
         stack_size *= 2;
         stack = realloc(stack, stack_size * sizeof (object *));
     }
+    //printf("Pushing: ");
+    //print_object(o);
+    //printf("\n");
     stack[s_off++] = o;
+    //dump_stack();
 }
 
 static inline object *__pop() {
     if(s_off == 0) return obj_nil();
+    //printf("Popping: \n");
+    //dump_stack();
     return stack[--s_off];
 }
 
@@ -201,6 +207,9 @@ static inline void vm_div(context_stack *cs, long variance) {
     }
     (void)cs;
     long val = 1;
+    printf("Signalling error: ");
+    print_object(__top());
+    printf("\n");
     for(int i = 0; i < variance - 1; i++) {
         val *= oval_long(cs, __pop());
     }
@@ -385,7 +394,19 @@ void vm_compile_fn(context_stack *cs, long variance) {
     fn_cc->c = top_context(cs);
     object *fn = new_object_fn_compiled(fn_cc);
     bind_fn(cs, fname, fn);
+
+    // Unbind the fn if anything goes wrong.
+    jmp_buf *trap = vm_push_trap(cs, obj_nil());
+    int ret = setjmp(*trap);
+    if(ret) {
+        printf("ERROR IN VM_COMPILE_FN!\n");
+        //free_compiled_chunk(cc);
+        unbind_fn(cs, fname);
+        vm_error_impl(cs, __pop());
+        return;
+    }
     compile_fn(fn_cc, cs, uncompiled_fn);
+    __pop_trap();
 }
 
 void vm_compile_macro(context_stack *cs, long variance) {
@@ -552,11 +573,14 @@ void vm_error(context_stack *cs, long variance) {
         //abort();
         vm_error_impl(cs, interns("SIG-ERROR"));
     }
+//    printf("Calling vm_error(%ld).\n", trap_stack_off);
+//    printf("Dumping stack in vm_error_impl:\n");
+//    dump_stack();
     object *sym = pop();
     vm_error_impl(cs, sym);
 }
 void vm_error_impl(context_stack *cs, object *sym) {
-    //printf("Calling vm_error(%ld).\n", trap_stack_off);
+
     for(ssize_t i = trap_stack_off - 1; i >= 0; i--) {
 //        printf("Checking trap_stack[%lu].\n", i);
 //        printf("sym: ");
@@ -570,11 +594,20 @@ void vm_error_impl(context_stack *cs, object *sym) {
                 printf("Cannot handle error without context_stack.\n");
                 abort();
             }
+
+//            printf("%ld Current s_off: %ld, after trap_stack_off: %ld\n", i, s_off, trap_stack[i].s_off);
+//            printf("Longjmping for error: ");
+//            print_object(sym);
+//            printf("\nStack:\n");
+//            dump_stack();
+
             // Someone wants to catch this error.
             pop_context_to_level(cs, trap_stack[i].context_off);
             trap_stack_off = trap_stack[i].trap_stack_off;
             s_off = trap_stack[i].s_off;
             push(sym);
+            //printf("Afterward: \n");
+            //dump_stack();
             longjmp(trap_stack[i].buff, 3);
         }
     }
@@ -598,11 +631,23 @@ jmp_buf *vm_push_trap(context_stack *cs, object *sym) {
 }
 
 void vm_open(context_stack *cs, long variance) {
-
+    if(variance != 1) {
+        printf("Expected exactly 1 argument, but got %ld.\n", variance);
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
+    }
+    object *fname = __pop();
+    __push(new_object_fstream(cs, oval_string(cs, fname), "a+"));
 }
 
 void vm_close(context_stack *cs, long variance) {
-
+    if(variance != 1) {
+        printf("Expected exactly 1 argument, but got %ld.\n", variance);
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
+    }
+    fstream_close(cs, __pop());
+    __push(obj_nil());
 }
 
 void vm_eval(context_stack *cs, long variance) {
@@ -620,31 +665,47 @@ void vm_eval(context_stack *cs, long variance) {
     jmp_buf *trap = vm_push_trap(cs, obj_nil());
     int ret = setjmp(*trap);
     if(ret) {
-        free_compiled_chunk(cc);
-        vm_error_impl(cs, interns("SIG-ERROR"));
+        printf("ERROR IN VM_EVAL! THROWING SIG_ERROR\n");
+        //free_compiled_chunk(cc);
+        vm_error_impl(cs, __pop());
     }
-    
+
     object *o = __pop();
     compile_form(cc, cs, o);
     run_vm(cs, cc);
     free_compiled_chunk(cc);
-
+    __pop_trap();
 }
 
 void vm_read(context_stack *cs, long variance) {
     (void)cs;
-    if(variance != 0) {
-        printf("Expected exactly 0 arguments, but got %ld.\n", variance);
+    if(variance > 1) {
+        printf("Expected 0 or 1 arguments, but got %ld.\n", variance);
         //abort();
         vm_error_impl(cs, interns("SIG-ERROR"));
     }
-    object *o = next_form(stdin_parser, cs);
+    parser *p = stdin_parser;
+    if(variance == 1) {
+        //printf("Read dumping stack: \n");
+        //dump_stack();
+        object *o = pop();
+        //printf("Creating parser from object: ");
+        //print_object(o);
+        //printf("\n");
+        p = new_parser_file(fstream_file(cs, o));
+    }
+    object *o = next_form(p, cs);
     if(o) {
+//        printf("Result: ");
+//        print_object(o);
+//        printf("\n");
         __push(o);
     }
     else {
-        printf("Stream was closed.\n");
-        exit(0);
+        __push(obj_nil());
+    }
+    if(variance == 1) {
+        destroy_parser(p);
     }
 }
 
@@ -656,6 +717,7 @@ void vm_print(context_stack *cs, long variance) {
         vm_error_impl(cs, interns("SIG-ERROR"));
     }
     print_object(__pop());
+    __push(obj_nil());
 }
 
 //        dump_stack();
@@ -689,7 +751,10 @@ void *___vm(context_stack *cs, compiled_chunk *cc, int _get_vm_addrs) {
         map_put(m, "num_eq", &&num_eq);
         map_put(m, "catch", &&catch);
         map_put(m, "pop_catch", &&pop_catch);
+        map_put(m, "pop_to_stack", &&pop_to_stack);
         map_put(m, "exit", &&exit);
+        map_put(m, "save_stackoff", &&save_stackoff);
+        map_put(m, "restore_stackoff", &&restore_stackoff);
         return m;
     }
 
@@ -706,6 +771,7 @@ void *___vm(context_stack *cs, compiled_chunk *cc, int _get_vm_addrs) {
 
     struct binstr *bs = cc->bs;
     struct binstr *bs_saved;
+    size_t saved_stackoff;
 
     goto *bs->instr;
     return NULL;
@@ -730,9 +796,10 @@ push:
     NEXTI;
 pop:
     //printf("%ld@%p POP: ", bs - cc->bs, cc);
-    //print_object(__pop());
+    ret = __pop();
+    //print_object(ret);
     //printf("\n");
-    __pop();
+    //dump_stack();
     NEXTI;
 call:
     //printf("%ld@%p CALL (%ld)\n", bs - cc->bs, cc, bs->variance);
@@ -743,7 +810,7 @@ resolve_sym:
     resolve(cs);
     NEXTI;
 bind_var:
-    //printf("%ld@%p BIND\n", bs - cc->bs, cc);
+    //printf("%ld@%p BIND_VAR\n", bs - cc->bs, cc);
     sym = __pop();
     val = __pop();
     bind_var(cs, sym, val);
@@ -751,15 +818,15 @@ bind_var:
 bind_fn:
     sym = __pop();
     val = __pop();
-    //printf("%ld@%p BIND\n", bs - cc->bs, cc);
+    //printf("%ld@%p BIND_FN\n", bs - cc->bs, cc);
     bind_fn(cs, sym, val);
     NEXTI;
 push_lex_context:
-//    printf("\n\n!!!!!!!!!!!!!!%ld@%p PUSH_LEX_CONTEXT %p\n", bs - cc->bs, cc, top_context(cs));
+    //printf("%ld@%p PUSH_LEX_CONTEXT %p\n", bs - cc->bs, cc, top_context(cs));
     push_context(cs);
     NEXTI;
 pop_lex_context:
-//    printf("\n\n!!!!!!!!!!!!!!%ld@%p POP_LEX_CONTEXT: %p\n", bs - cc->bs, cc, top_context(cs));
+    //printf("%ld@%p POP_LEX_CONTEXT: %p\n", bs - cc->bs, cc, top_context(cs));
     //free_context(pop_context(cs));
     pop_context(cs);
     NEXTI;
@@ -809,6 +876,7 @@ go_if_nil_optim:
     NEXTI;
 push_from_stack:
     //printf("%ld@%p PUSH_FROM_STACK (%ld)\n", bs - cc->bs, cc, s_off - 1 - bs->offset);
+    //dump_stack();
     __push(stack[s_off - 1 - bs->offset]);
     NEXTI;
 add:
@@ -870,8 +938,33 @@ pop_catch:
     //printf("%ld@%p POP_CATCH\n", bs - cc->bs, cc);
     pop_trap();
     NEXTI;
+pop_to_stack:
+    //printf("%ld@%p POP_TO_STACK (%ld) (s_off %ld)\n", bs - cc->bs, cc, s_off - 1 - bs->offset, s_off);
+    if(s_off - 1 == s_off - 1 - bs->offset) {
+        //printf("SKIPPING!\n");
+    }
+    else {
+        stack[s_off - 1 - bs->offset] = __top();
+        //printf("=============================\n");
+        //dump_stack();
+        __pop();
+        //printf("=============================\n");
+        //dump_stack();
+    }
+    NEXTI;
+save_stackoff:
+    //printf("%ld@%p SAVE_STACKOFF\n", bs - cc->bs, cc);
+    //dump_stack();
+    saved_stackoff = s_off;
+    NEXTI;
+restore_stackoff:
+    //printf("%ld@%p RESTORE_STACKOFF\n", bs - cc->bs, cc);
+    s_off = saved_stackoff;
+    //dump_stack();
+    NEXTI;
 exit:
     //printf("%ld@%p EXIT\n", bs - cc->bs, cc);
+    //dump_stack();
     pthread_mutex_unlock(&gc_mut);
     pthread_mutex_lock(&gc_mut);
     return NULL;

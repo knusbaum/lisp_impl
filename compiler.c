@@ -16,6 +16,9 @@ object *vm_s_if;
 object *vm_s_defmacro;
 object *vm_s_for;
 object *vm_s_catch;
+object *vm_s_tagbody;
+object *vm_s_go;
+object *vm_s_set;
 
 map_t *internals;
 
@@ -45,6 +48,9 @@ void compiler_init() {
     vm_s_defmacro = interns("DEFMACRO");
     vm_s_for = interns("FOR");
     vm_s_catch = interns("CATCH");
+    vm_s_tagbody = interns("TAGBODY");
+    vm_s_go = interns("GO");
+    vm_s_set = interns("SET");
 
     internals = map_create(sym_equal);
     map_put(internals, vm_s_quote, vm_s_quote);
@@ -127,7 +133,7 @@ void free_compiled_chunk(compiled_chunk *c) {
 }
 
 void bs_chew_top(compiled_chunk *cc, size_t num) {
-    //printf("%ld@%p bs_chew_top: (%ld)", cc->b_off, cc, num);
+    //printf("%ld@%p bs_chew_top: (%ld)\n", cc->b_off, cc, num);
     add_binstr_offset(cc, map_get(addrs, "chew_top"), num);
     cc->stacklevel -= num;
 }
@@ -159,7 +165,7 @@ void bs_pop_context(compiled_chunk *cc) {
 
 void bs_bind(compiled_chunk *cc, context_stack *cs, object *sym) {
     object *stackoffsetobj = new_object_stackoffset(cc->stacklevel);
-    //printf("%ld@%p bs_bind %s to stacklevel %ld: (%p)\n", cc->b_off, cc, string_ptr(oval_symbol(sym)), cc->stacklevel, stackoffsetobj);
+    //printf("%ld@%p bs_bind %s to stacklevel %ld: (%p)\n", cc->b_off, cc, string_ptr(oval_symbol(cs, sym)), cc->stacklevel, stackoffsetobj);
     bind_var(cs, sym, stackoffsetobj);
 }
 
@@ -192,7 +198,7 @@ void bs_resolve(compiled_chunk *cc, context_stack *cs, object *sym) {
     }
     if(otype(var_stacklevel) == O_STACKOFFSET) {
 
-        //printf("Resolving to: %ld, %ld from top of stack (%ld): (%p)\n", oval_stackoffset(var_stacklevel), cc->stacklevel - oval_stackoffset(var_stacklevel), cc->stacklevel, var_stacklevel);
+        //printf("Resolving to: %ld, %ld from top of stack (%ld): (%p)\n", oval_stackoffset(cs, var_stacklevel), cc->stacklevel - oval_stackoffset(cs, var_stacklevel), cc->stacklevel, var_stacklevel);
         bs_push_from_stack(cc, cc->stacklevel - oval_stackoffset(cs, var_stacklevel));
     }
     else if(map_get(special_syms, sym) != NULL) {
@@ -200,8 +206,37 @@ void bs_resolve(compiled_chunk *cc, context_stack *cs, object *sym) {
     }
     else {
         bs_push(cc, sym);
-        //printf("%ld@%p bs_resolve: resolving: %s\n", cc->b_off, cc, string_ptr(oval_symbol(sym)));
+        //printf("%ld@%p bs_resolve: resolving: %s\n", cc->b_off, cc, string_ptr(oval_symbol(cs, sym)));
         add_binstr_arg(cc, map_get(addrs, "resolve_sym"), NULL);
+    }
+}
+
+void bs_pop_to_stack(compiled_chunk *cc, size_t offset) {
+    //printf("%ld@%p set_stack: %ld\n", cc->b_off, cc, offset);
+    add_binstr_offset(cc, map_get(addrs, "pop_to_stack"), offset);
+    cc->stacklevel--;
+}
+
+void bs_set(compiled_chunk *cc, context_stack *cs, object *sym) {
+    object *var_stacklevel = lookup_var(cs, sym);
+    if(!var_stacklevel) {
+        printf("Cannot resolve sym: ");
+        print_object(sym);
+        printf("\n");
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
+    }
+    if(otype(var_stacklevel) == O_STACKOFFSET) {
+
+        //printf("Setting to: %ld, %ld from top of stack (%ld): (%p)\n", oval_stackoffset(cs, var_stacklevel), cc->stacklevel - oval_stackoffset(cs, var_stacklevel), cc->stacklevel, var_stacklevel);
+        bs_pop_to_stack(cc, cc->stacklevel - oval_stackoffset(cs, var_stacklevel));
+    }
+    else {
+        bs_push(cc, sym);
+//        printf("%ld@%p set_sym: setting: %s\n", cc->b_off, cc, string_ptr(oval_symbol(cs, sym)));
+//        add_binstr_arg(cc, map_get(addrs, "set_sym"), NULL);
+//        cc->stacklevel--;
+        bs_bind_var(cc);
     }
 }
 
@@ -233,11 +268,13 @@ void bs_num_eq(compiled_chunk *cc, long variance) {
 }
 
 void bs_catch(compiled_chunk *cc) {
+    //printf("%ld@%p bs_catch\n", cc->b_off, cc);
     add_binstr_arg(cc, map_get(addrs, "catch"), NULL);
-    cc->stacklevel--;
+    //cc->stacklevel--;
 }
 
 void bs_pop_catch(compiled_chunk *cc) {
+    //printf("%ld@%p bs_pop_catch\n", cc->b_off, cc);
     add_binstr_arg(cc, map_get(addrs, "pop_catch"), NULL);
 }
 
@@ -272,6 +309,18 @@ void bs_go_if_not_nil(compiled_chunk *cc, char *label) {
     //printf("%ld@%p bs_go_if_nil: %s\n", cc->b_off, cc, label);
     add_binstr_str(cc, map_get(addrs, "go_if_not_nil"), label);
     cc->stacklevel--;
+}
+
+void bs_save_stackoff(compiled_chunk *cc) {
+    //printf("%ld@%p bs_save_stackoff\n", cc->b_off, cc);
+    add_binstr_arg(cc, map_get(addrs, "save_stackoff"), NULL);
+    cc->saved_stacklevel = cc->stacklevel;
+}
+
+void bs_restore_stackoff(compiled_chunk *cc) {
+    //printf("%ld@%p bs_restore_stackoff\n", cc->b_off, cc);
+    add_binstr_arg(cc, map_get(addrs, "restore_stackoff"), NULL);
+    cc->stacklevel = cc->saved_stacklevel;
 }
 
 // Reverse the bind order and handle variadic calls
@@ -427,6 +476,7 @@ static void vm_fn(compiled_chunk *cc, context_stack *cs, object *o) {
     bs_push(cc, lookup_fn(cs, interns("COMPILE-FN")));
     bs_call(cc, 2);
     bs_pop_context(cc);
+    bs_push(cc, obj_nil());
 }
 
 void vm_if(compiled_chunk *cc, context_stack *cs, object *o) {
@@ -547,7 +597,7 @@ void vm_catch(compiled_chunk *cc, context_stack *cs, object *o) {
     caught = ocar(cs, caught);
     object *caught_type = ocar(cs, caught);
     object *caught_bind = ocar(cs, ocdr(cs, caught));
-    
+
     // Catch form
     compile_bytecode(cc, cs, caught_type);
     bs_catch(cc);
@@ -560,12 +610,57 @@ void vm_catch(compiled_chunk *cc, context_stack *cs, object *o) {
     bs_go(cc, end_lab);
 
     // Catch Branch
-    cc->stacklevel = stackoff;
+    cc->stacklevel = stackoff + 1; // + 1 for the error
     bs_bind(cc, cs, caught_bind); // Bind the sym to the error.
     bs_label(cc, catch_branch_lab);
     compile_bytecode(cc, cs, ocar(cs, catch_branch));
+    bs_chew_top(cc, 1);
+    //bs_pop(cc); // pop the error sym.
 
     bs_label(cc, end_lab);
+}
+
+void vm_tagbody(compiled_chunk *cc, context_stack *cs, object *o) {
+    int first_time = 1;
+    bs_push_context(cc);
+    bs_save_stackoff(cc);
+    size_t stackoff = cc->stacklevel;
+    for(object *next = ocdr(cs, o); next != obj_nil(); next = ocdr(cs, next)) {
+        if(!first_time) {
+            // Pop the previous result. It will be unused. (only the last form is "returned.")
+            bs_pop(cc);
+        }
+        first_time=0;
+        object *current = ocar(cs, next);
+        if(otype(current) == O_SYM) {
+            bs_label(cc, strdup(string_ptr(oval_symbol(cs, current))));
+            bs_push(cc, obj_nil());
+            //stackoff = cc->stackoff;
+        }
+        else {
+            cc->stacklevel = stackoff;
+            compile_bytecode(cc, cs, current);
+        }
+    }
+    bs_restore_stackoff(cc);
+    bs_push(cc, obj_nil());
+    bs_pop_context(cc);
+}
+
+void vm_go(compiled_chunk *cc, context_stack *cs, object *o) {
+    object *label = ocar(cs, ocdr(cs, o));
+//    bs_push(cc, obj_nil());
+//    bs_restore_stackoff(cc);
+    bs_go(cc, strdup(string_ptr(oval_symbol(cs, label))));
+
+}
+
+void vm_set(compiled_chunk *cc, context_stack *cs, object *o) {
+    object *var = ocar(cs, ocdr(cs, o));
+    object *val = ocar(cs, ocdr(cs, ocdr(cs, o)));
+    compile_bytecode(cc, cs, val);
+    bs_set(cc, cs, var);
+    bs_push(cc, obj_nil());
 }
 
 static void compile_cons(compiled_chunk *cc, context_stack *cs, object *o) {
@@ -596,6 +691,15 @@ static void compile_cons(compiled_chunk *cc, context_stack *cs, object *o) {
     }
     else if(func == vm_s_catch) {
         vm_catch(cc, cs, o);
+    }
+    else if(func == vm_s_tagbody) {
+        vm_tagbody(cc, cs, o);
+    }
+    else if(func == vm_s_go) {
+        vm_go(cc, cs, o);
+    }
+    else if(func == vm_s_set) {
+        vm_set(cc, cs, o);
     }
     // inlined arithmetic
     else if(func == interns("+")) {
@@ -733,6 +837,17 @@ compiled_chunk *repl(context_stack *cs) {
     bs_push(cc, lookup_fn(cs, interns("EVAL")));
     bs_call(cc, 1);
     bs_push(cc, lookup_fn(cs, interns("PRINT")));
+    bs_call(cc, 1);
+    bs_exit(cc);
+    return cc;
+}
+
+compiled_chunk *bootstrapper(context_stack *cs, FILE *bootstrap_file) {
+    compiled_chunk *cc = new_compiled_chunk();
+    bs_push(cc, new_object_fstream_unsafe(cs, bootstrap_file));
+    bs_push(cc, lookup_fn(cs, interns("READ")));
+    bs_call(cc, 1);
+    bs_push(cc, lookup_fn(cs, interns("EVAL")));
     bs_call(cc, 1);
     bs_exit(cc);
     return cc;

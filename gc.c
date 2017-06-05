@@ -65,7 +65,9 @@ void gc(context_stack *cs) {
     gq_head = 0;
     gq_size = INIT_STACK;
 
+//    printf("Waiting on gc_mut.\n");
     pthread_mutex_lock(get_gc_mut());
+//    printf("Running GC.\n");
     size_t local_o_off = o_off;
     //pthread_mutex_unlock(get_gc_mut());
     
@@ -157,6 +159,7 @@ void gc(context_stack *cs) {
         case O_FN_NATIVE:
         case O_KEYWORD:
         case O_STACKOFFSET:
+        case O_FSTREAM:
             break;
         case O_CONS:
             temp = ocar(NULL, grey);

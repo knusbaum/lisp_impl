@@ -62,6 +62,10 @@ void bind_fn(context_stack *cs, object *sym, object *fn) {
     map_put(cs->cstack[0]->funcs, sym, fn);
 }
 
+void unbind_fn(context_stack *cs, object *sym) {
+    map_delete(cs->cstack[0]->funcs, sym);
+}
+
 int sym_equal(void *a, void *b) {
     return a == b;
 }

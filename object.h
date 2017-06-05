@@ -2,6 +2,7 @@
 #define OBJECT_H
 
 #include <stdarg.h>
+#include <stdio.h>
 #include "lstring.h"
 #include "map.h"
 
@@ -23,8 +24,8 @@ enum obj_type {
     O_MACRO,
     O_FN_COMPILED,
     O_MACRO_COMPILED,
-    O_STACKOFFSET
-//    O_STREAM
+    O_STACKOFFSET,
+    O_FSTREAM
 };
 
 void object_set_name(object *o, char *name);
@@ -60,6 +61,12 @@ object *ocdr(context_stack *cs, object *o);
 object *osetcar(context_stack *cs, object *o, object *car);
 object *osetcdr(context_stack *cs, object *o, object *cdr);
 void print_object(object *o);
+
+/** Stream Operations **/
+object *new_object_fstream(context_stack *cs, string *fname, char *mode);
+object *new_object_fstream_unsafe(context_stack *cs, FILE *f); // Used for bootstrapping. Unsafe since we don't know state of f.
+void fstream_close(context_stack *cs, object *o);
+FILE *fstream_file(context_stack *cs, object *o);
 
 /** Symbol Operations **/
 object *interns(char *symname);

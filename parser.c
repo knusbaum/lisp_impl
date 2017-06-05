@@ -158,9 +158,13 @@ object *next_form(parser *p, context_stack *cs) {
         printf("Found '@' without a comma.\n");
         vm_error_impl(cs, interns("SIG-ERROR"));
         break;
+    case END:
+        vm_error_impl(cs, interns("END-OF-FILE"));
+        get_next_tok(p);
+        break;
     default:
-//        printf("[parser.c][next_form] Got another token: ");
-//        print_token(currtok());
+        //printf("[parser.c][next_form] Got another token: ");
+        //print_token(currtok(p));
         get_next_tok(p);
         return NULL;
     }
