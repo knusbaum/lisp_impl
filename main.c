@@ -34,8 +34,8 @@ int main(void) {
             continue;
         }
         //printf("CC: %p\n", cc);
-        //printf("Current context: %p\nStack: %ld\nTrap: %ld",
-        //       top_context(cs), s_off, trap_stack_off);
+        printf("Current context: %p\nStack: %ld\nTrap: %ld",
+               top_context(cs), s_off, trap_stack_off);
         printf("\n> ");
         run_vm(cs, cc);
         pop_trap();

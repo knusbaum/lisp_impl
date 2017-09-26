@@ -4,6 +4,7 @@
 #include <string.h>
 #include "lexer.h"
 #include "lstring.h"
+#include "errno.h"
 
 struct lexer {
     FILE *f;
@@ -41,17 +42,41 @@ static int look(struct lexer *lex) {
     //printf("[lexer.c][look] Looking.\n");
     if(!lex->look) {
         lex->look = getc(lex->f);
+        if(lex->look == EOF && !feof(lex->f)) {
+            if(errno == EINTR) {
+                lex->look = 0;
+                return look(lex);
+            }
+            perror("Got error: ");
+            abort();
+        }
     }
     return lex->look;
 }
 
 static int get_char(struct lexer *lex) {
     //printf("[lexer.c][get_char] Getting char.\n");
-    if(!lex->look) {
-        lex->look = getc(lex->f);
-    }
+//    if(!lex->look) {
+//        lex->look = getc(lex->f);
+//        if(lex->look == EOF && !feof(lex->f)) {
+//            if(errno == EINTR) {
+//                lex->look = 0;
+//                return get_char(lex);
+//            }
+//            perror("Got error: ");
+//            abort();
+//        }
+//    }
     int ret = lex->look;
     lex->look = getc(lex->f);
+    if(lex->look == EOF && !feof(lex->f)) {
+        if(errno == EINTR) {
+            lex->look = 0;
+            return get_char(lex);
+        }
+        perror("Got error: ");
+        abort();
+    }
     //printf("[lexer.c][get_char] Got: %c\n", ret);
     return ret;
 }

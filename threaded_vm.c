@@ -57,7 +57,7 @@ size_t trap_stack_size;
 static inline jmp_buf *__push_trap(context_stack *cs, object *catcher) {
     if(trap_stack_off == trap_stack_size) {
         trap_stack_size *= 2;
-        stack = realloc(trap_stack, trap_stack_size * sizeof (object *));
+        trap_stack = realloc(trap_stack, trap_stack_size * sizeof (object *));
     }
     trap_stack[trap_stack_off].s_off = s_off;
     trap_stack[trap_stack_off].trap_stack_off = trap_stack_off;
@@ -142,7 +142,7 @@ void vm_init(context_stack *cs) {
     map_put(special_syms, obj_t(), (void *)1);
     map_put(special_syms, obj_nil(), (void *)1);
 
-    stdin_parser = new_parser_file(stdin); 
+    stdin_parser = new_parser_file(stdin);
 }
 
 static inline void __push(object *o) {
@@ -151,16 +151,28 @@ static inline void __push(object *o) {
         stack = realloc(stack, stack_size * sizeof (object *));
     }
     stack[s_off++] = o;
+    printf("Pushing (%p)\n", stack[s_off - 1]);
+    fflush(stdout);
+    //dump_stack();
 }
 
 static inline object *__pop() {
     if(s_off == 0) return obj_nil();
-    return stack[--s_off];
+    printf("Popping (%p)\n", stack[s_off - 1]);
+    fflush(stdout);
+    object *ret = stack[--s_off];
+    //dump_stack();
+    return ret;
 }
 
-static inline object *__top() {
+static inline object *__top(size_t off) {
     if(s_off == 0) return obj_nil();
-    return stack[s_off - 1];
+    return stack[s_off - (1 + off)];
+}
+
+static inline void __chew_top(size_t off) {
+    stack[s_off - (off + 1)] = __top(0);
+    s_off -= off;
 }
 
 void push(object *o) {
@@ -173,6 +185,7 @@ object *pop() {
 
 void dump_stack() {
     for(size_t i = 0; i < s_off; i++) {
+        printf("(%p) ", stack[i]);
         print_object(stack[i]);
         printf("\n");
     }
@@ -254,9 +267,10 @@ void vm_list(context_stack *cs, long variance) {
     (void)cs;
     object *cons = obj_nil();
     for(int i = 0; i < variance; i++) {
-        cons = new_object_cons(__pop(), cons);
+        cons = new_object_cons(__top(i), cons);
     }
     __push(cons);
+    __chew_top(variance);
 }
 
 void vm_append(context_stack *cs, long variance) {
@@ -267,10 +281,11 @@ void vm_append(context_stack *cs, long variance) {
     }
 
     (void)cs;
-    object *cons = new_object_cons(__pop(), obj_nil());
-    object *target = __pop();
+    object *cons = new_object_cons(__top(0), obj_nil());
+    object *target = __top(1);
     if(target == obj_nil()) {
         __push(cons);
+        __chew_top(2);
         return;
     }
     object *curr = target;
@@ -279,6 +294,7 @@ void vm_append(context_stack *cs, long variance) {
     }
     osetcdr(cs, curr, cons);
     __push(target);
+    __chew_top(2);
 }
 
 void vm_splice(context_stack *cs, long variance) {
@@ -289,10 +305,11 @@ void vm_splice(context_stack *cs, long variance) {
     }
 
     (void)cs;
-    object *to_splice = __pop();
-    object *target = __pop();
+    object *to_splice = __top(0);
+    object *target = __top(1);
     if(target == obj_nil()) {
         __push(to_splice);
+        __chew_top(2);
         return;
     }
     object *curr = target;
@@ -301,6 +318,7 @@ void vm_splice(context_stack *cs, long variance) {
     }
     osetcdr(cs, curr, to_splice);
     __push(target);
+    __chew_top(2);
 }
 
 void vm_car(context_stack *cs, long variance) {
@@ -374,13 +392,16 @@ void vm_compile_fn(context_stack *cs, long variance) {
         //abort();
         vm_error_impl(cs, interns("SIG-ERROR"));
     }
-    object *fname = __pop();
-    object *uncompiled_fn = __pop();
+    object *fname = __top(0); //__pop();
+    object *uncompiled_fn = __top(1); //__pop();
+
     compiled_chunk *fn_cc = new_compiled_chunk();
     fn_cc->c = top_context(cs);
     object *fn = new_object_fn_compiled(fn_cc);
     bind_fn(cs, fname, fn);
     compile_fn(fn_cc, cs, uncompiled_fn);
+
+    __pop(); __pop();
 }
 
 void vm_compile_macro(context_stack *cs, long variance) {
@@ -399,7 +420,7 @@ void vm_compile_macro(context_stack *cs, long variance) {
 }
 
 void call(context_stack *cs, long variance) {
-    object *fn = __pop();
+    object *fn = __top(0);
     if(fn == obj_nil() || fn == NULL) {
         printf("Cannot call function: ");
         print_object(fn);
@@ -412,19 +433,20 @@ void call(context_stack *cs, long variance) {
         if(cc->c) {
             push_existing_context(cs, cc->c);
         }
+        __pop(); // pop fn
         run_vm(cs, cc);
-        set_gc_flag(__top(), GC_FLAG_BLACK);
+        set_gc_flag(__top(0), GC_FLAG_BLACK);
         object *ret = __pop();
         for(int i = 0; i < variance; i++) {
             __pop();
         }
-        //__pop(); // pop fn
         __push(ret);
         if(cc->c) {
             pop_context(cs);
         }
     }
     else if(otype(fn) == O_FN_NATIVE) {
+        __pop();
         oval_native_unsafe(fn)(cs, variance);
     }
     else if(otype(fn) == O_MACRO) {
@@ -457,7 +479,7 @@ void resolve(context_stack *cs) {
 
 
 void vm_macroexpand_rec(context_stack *cs, long rec) {
-    object *o = __top();
+    object *o = __top(0);
     if(rec >= 4096) {
         printf("Cannot expand macro. Nesting too deep.\n");
         //abort();
@@ -491,6 +513,7 @@ void vm_macroexpand_rec(context_stack *cs, long rec) {
 
             run_vm(cs, oval_fn_compiled(cs, func));
 
+            set_gc_flag(__top(0), GC_FLAG_GREY);
             object *exp = pop();
             for(int i = 0; i < num_args; i++) {
                 pop();
@@ -503,7 +526,7 @@ void vm_macroexpand_rec(context_stack *cs, long rec) {
             for(object *margs = o; margs != obj_nil(); margs = ocdr(cs, margs)) {
                 push(ocar(cs, margs));
                 vm_macroexpand_rec(cs, rec);
-                set_gc_flag(__top(), GC_FLAG_BLACK);
+                set_gc_flag(__top(0), GC_FLAG_BLACK);
                 object *o = pop();
                 osetcar(cs, margs, o);
             }
@@ -609,12 +632,12 @@ void vm_eval(context_stack *cs, long variance) {
         free_compiled_chunk(cc);
         vm_error_impl(cs, interns("SIG-ERROR"));
     }
-    
+
     object *o = __pop();
     compile_form(cc, cs, o);
     run_vm(cs, cc);
     free_compiled_chunk(cc);
-
+    pop_trap();
 }
 
 void vm_read(context_stack *cs, long variance) {
@@ -697,16 +720,23 @@ void *___vm(context_stack *cs, compiled_chunk *cc, int _get_vm_addrs) {
     return NULL;
 
     size_t target;
-    object *ret, *sym, *val;
+    object *sym, *val;
     long mathvar;
     long truthiness;
     int i;
     jmp_buf *jmp;
 chew_top:
-    //printf("%ld@%p, CHEW_TOP (%ld): ", bs - cc->bs, cc, bs->offset);
-    ret = __pop();
-    s_off -= bs->offset;
-    __push(ret);
+    
+    printf("%ld@%p, CHEW_TOP (%ld): ", bs - cc->bs, cc, bs->offset);
+    dump_stack();
+    //ret = __pop();
+    //s_off -= bs->offset;
+    //__push(ret);
+    //stack[s_off - (bs->offset + 1)] = __top(0);
+    //s_off -= bs->offset;
+    __chew_top(bs->offset);
+    printf("THEN: \n");
+    dump_stack();
     NEXTI;
 push:
     //printf("%ld@%p, PUSH: ", bs - cc->bs, cc);
@@ -801,7 +831,7 @@ add:
     //printf("%ld@%p ADD (%ld)\n", bs - cc->bs, cc, bs->variance);
     mathvar = 0;
     for(i = 0; i < bs->variance; i++) {
-        mathvar += oval_long(cs, __top());
+        mathvar += oval_long(cs, __top(0));
         __pop();
     }
     __push(new_object_long(mathvar));
