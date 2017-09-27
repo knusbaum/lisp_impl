@@ -81,6 +81,11 @@ void gc(context_stack *cs) {
     context_var_iterator *curr_var = cvi;
     while(curr_var) {
         svp = context_var_iterator_values(cvi);
+//        printf("marking grey: (");
+//        print_object(svp.sym);
+//        printf(")\t(");
+//        print_object(svp.val);
+//        printf(")\n");
         set_gc_flag(svp.sym, GC_FLAG_GREY);
         set_gc_flag(svp.val, GC_FLAG_GREY);
         enqueue_grey_queue(svp.sym);
@@ -255,6 +260,9 @@ void gc(context_stack *cs) {
     size_t new_olist_off = 0;
     for(size_t i = 0; i < o_off; i++) {
         if(gc_flag(olist[i]) == GC_FLAG_WHITE) {
+//            printf("Freeing object at %p\n", olist[i]);
+//            print_object(olist[i]);
+//            printf("\n");
             destroy_object(olist[i]);
         }
         else {

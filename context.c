@@ -40,6 +40,11 @@ object *lookup_var(context_stack *cs, object *sym) {
 }
 
 object *bind_var(context_stack *cs, object *sym, object *var) {
+    //printf("Binding var: (");
+    //print_object(sym);
+    //printf(") -> (");
+    //print_object(var);
+    //printf(") context: %p\n", cs->cstack[cs->cstackoff]);
     map_put(cs->cstack[cs->cstackoff]->vars, sym, var);
     return var;
 }
