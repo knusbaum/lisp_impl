@@ -93,6 +93,7 @@ void vm_length(context_stack *cs, long variance);
 void vm_eq(context_stack *cs, long variance);
 void vm_compile(context_stack *cs, long variance);
 void vm_compile_fn(context_stack *cs, long variance);
+void vm_compile_lambda(context_stack *cs, long variance);
 void vm_compile_macro(context_stack *cs, long variance);
 void vm_eval(context_stack *cs, long variance);
 void vm_read(context_stack *cs, long variance);
@@ -131,6 +132,7 @@ void vm_init(context_stack *cs) {
     bind_native_fn(cs, interns("LENGTH"), vm_length);
     bind_native_fn(cs, interns("EQ"), vm_eq);
     bind_native_fn(cs, interns("COMPILE-FN"), vm_compile_fn);
+    bind_native_fn(cs, interns("COMPILE-LAMBDA"), vm_compile_lambda);
     bind_native_fn(cs, interns("COMPILE-MACRO"), vm_compile_macro);
     bind_native_fn(cs, interns("EVAL"), vm_eval);
     bind_native_fn(cs, interns("READ"), vm_read);
@@ -394,6 +396,7 @@ void vm_compile_fn(context_stack *cs, long variance) {
     fn_cc->c = top_context(cs);
     object *fn = new_object_fn_compiled(fn_cc);
     bind_fn(cs, fname, fn);
+    //push(fn);
 
     // Unbind the fn if anything goes wrong.
     jmp_buf *trap = vm_push_trap(cs, obj_nil());
@@ -407,6 +410,35 @@ void vm_compile_fn(context_stack *cs, long variance) {
     }
     compile_fn(fn_cc, cs, uncompiled_fn);
     __pop_trap();
+}
+
+void vm_compile_lambda(context_stack *cs, long variance) {
+    if(variance != 2) {
+        printf("Expected exactly 2 arguments, but got %ld.\n", variance);
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
+    }
+    //object *fname = __pop();
+    object *uncompiled_fn = __pop();
+    compiled_chunk *fn_cc = new_compiled_chunk();
+    fn_cc->c = top_context(cs);
+    object *fn = new_object_fn_compiled(fn_cc);
+    //bind_fn(cs, fname, fn);
+
+    // Unbind the fn if anything goes wrong.
+    jmp_buf *trap = vm_push_trap(cs, obj_nil());
+    int ret = setjmp(*trap);
+    if(ret) {
+        printf("ERROR IN VM_COMPILE_LAMBDA!\n");
+        //free_compiled_chunk(cc);
+        //unbind_fn(cs, fname);
+        vm_error_impl(cs, __pop());
+        return;
+    }
+    compile_fn(fn_cc, cs, uncompiled_fn);
+    __pop_trap();
+    //printf("Creating lambda at %p\n", fn);
+    push(fn);
 }
 
 void vm_compile_macro(context_stack *cs, long variance) {
@@ -637,7 +669,7 @@ void vm_open(context_stack *cs, long variance) {
         vm_error_impl(cs, interns("SIG-ERROR"));
     }
     object *fname = __pop();
-    __push(new_object_fstream(cs, oval_string(cs, fname), "a+"));
+    __push(new_object_fstream(cs, oval_string(cs, fname), "r+"));
 }
 
 void vm_close(context_stack *cs, long variance) {
@@ -945,10 +977,10 @@ pop_to_stack:
     }
     else {
         stack[s_off - 1 - bs->offset] = __top();
-        //printf("=============================\n");
+//        printf("=============================\n");
         //dump_stack();
         __pop();
-        //printf("=============================\n");
+//        printf("=============================\n");
         //dump_stack();
     }
     NEXTI;

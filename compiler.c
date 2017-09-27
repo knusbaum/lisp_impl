@@ -12,6 +12,8 @@ object *vm_s_comma;
 object *vm_s_comma_at;
 object *vm_s_let;
 object *vm_s_fn;
+object *vm_s_lambda;
+object *vm_s_funcall;
 object *vm_s_if;
 object *vm_s_defmacro;
 object *vm_s_for;
@@ -44,6 +46,8 @@ void compiler_init() {
     vm_s_comma_at = interns("COMMA_AT");
     vm_s_let = interns("LET");
     vm_s_fn = interns("FN");
+    vm_s_lambda = interns("LAMBDA");
+    vm_s_funcall = interns("FUNCALL");
     vm_s_if = interns("IF");
     vm_s_defmacro = interns("DEFMACRO");
     vm_s_for = interns("FOR");
@@ -59,6 +63,8 @@ void compiler_init() {
     map_put(internals, vm_s_comma_at, vm_s_comma_at);
     map_put(internals, vm_s_let, vm_s_let);
     map_put(internals, vm_s_fn, vm_s_fn);
+    map_put(internals, vm_s_lambda, vm_s_lambda);
+    map_put(internals, vm_s_funcall, vm_s_funcall);
     map_put(internals, vm_s_if, vm_s_if);
     map_put(internals, vm_s_defmacro, vm_s_defmacro);
     map_put(internals, vm_s_for, vm_s_for);
@@ -190,9 +196,9 @@ void bs_push_from_stack(compiled_chunk *cc, size_t offset) {
 void bs_resolve(compiled_chunk *cc, context_stack *cs, object *sym) {
     object *var_stacklevel = lookup_var(cs, sym);
     if(!var_stacklevel) {
-        printf("Cannot resolve sym: ");
-        print_object(sym);
-        printf("\n");
+        //printf("Cannot resolve sym: ");
+        //print_object(sym);
+        //printf("\n");
         //abort();
         vm_error_impl(cs, interns("SIG-ERROR"));
     }
@@ -220,9 +226,9 @@ void bs_pop_to_stack(compiled_chunk *cc, size_t offset) {
 void bs_set(compiled_chunk *cc, context_stack *cs, object *sym) {
     object *var_stacklevel = lookup_var(cs, sym);
     if(!var_stacklevel) {
-        printf("Cannot resolve sym: ");
-        print_object(sym);
-        printf("\n");
+        //printf("Cannot resolve sym: ");
+        //print_object(sym);
+        //printf("\n");
         //abort();
         vm_error_impl(cs, interns("SIG-ERROR"));
     }
@@ -233,7 +239,7 @@ void bs_set(compiled_chunk *cc, context_stack *cs, object *sym) {
     }
     else {
         bs_push(cc, sym);
-//        printf("%ld@%p set_sym: setting: %s\n", cc->b_off, cc, string_ptr(oval_symbol(cs, sym)));
+//        //printf("%ld@%p set_sym: setting: %s\n", cc->b_off, cc, string_ptr(oval_symbol(cs, sym)));
 //        add_binstr_arg(cc, map_get(addrs, "set_sym"), NULL);
 //        cc->stacklevel--;
         bs_bind_var(cc);
@@ -411,6 +417,7 @@ void compile_fn(compiled_chunk *fn_cc, context_stack *cs, object *fn) {
 static void vm_let(compiled_chunk *cc, context_stack *cs, object *o) {
     object *letlist = ocar(cs, ocdr(cs, o));
     long pushlen = 0;
+    //push_context(cs);
     for(object *frm = letlist; frm != obj_nil(); frm = ocdr(cs, frm)) {
         object *assign = ocar(cs, frm);
         object *sym = ocar(cs, assign);
@@ -426,9 +433,11 @@ static void vm_let(compiled_chunk *cc, context_stack *cs, object *o) {
         }
         first_time=0;
         compile_bytecode(cc, cs, ocar(cs, body));
-
     }
     bs_chew_top(cc, pushlen);
+    //pop_context(cs);
+    //context *ctx = pop_context(cs);
+    //free_context(ctx);
 }
 
 static void bind_vars_for_closure(compiled_chunk *cc, context_stack *cs) {
@@ -477,6 +486,60 @@ static void vm_fn(compiled_chunk *cc, context_stack *cs, object *o) {
     bs_call(cc, 2);
     bs_pop_context(cc);
     bs_push(cc, obj_nil());
+}
+
+static void vm_lambda(compiled_chunk *cc, context_stack *cs, object *o) {
+    (void)cc;
+    object *fargs = ocar(cs, ocdr(cs, o));
+    object *body = ocdr(cs, ocdr(cs, o));
+    if(otype(fargs) != O_CONS && fargs != obj_nil()) {
+        printf("Expected args as list, but got: ");
+        print_object(fargs);
+        printf("\n");
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
+    }
+
+    bs_push_context(cc);
+    bind_vars_for_closure(cc, cs);
+    bs_push(cc, new_object_fn(fargs, body));
+    bs_push(cc, lookup_fn(cs, interns("COMPILE-LAMBDA")));
+    bs_call(cc, 2);
+    bs_pop_context(cc);
+    //bs_push(cc, obj_nil());
+}
+
+static void vm_funcall(compiled_chunk *cc, context_stack *cs, object *o) {
+    (void)cc;
+    object *fun = ocar(cs, ocdr(cs, o));
+    object *args = ocdr(cs, ocdr(cs, o));
+//    if(otype(fargs) != O_CONS && fargs != obj_nil()) {
+//        printf("Expected args as list, but got: ");
+//        print_object(fargs);
+//        printf("\n");
+//        //abort();
+//        vm_error_impl(cs, interns("SIG-ERROR"));
+//    }
+
+    
+    long num_args = 0;
+    object *curr;
+    for(curr = args; curr != obj_nil(); curr = ocdr(cs, curr)) {
+        num_args++;
+        compile_bytecode(cc, cs, ocar(cs, curr));
+    }
+
+    //bs_push(cc, fun);
+    compile_bytecode(cc, cs, fun);
+    bs_call(cc, num_args);
+    
+//    bs_push_context(cc);
+//    bind_vars_for_closure(cc, cs);
+//    bs_push(cc, new_object_fn(fargs, body));
+//    bs_push(cc, lookup_fn(cs, interns("COMPILE-LAMBDA")));
+//    bs_call(cc, 2);
+//    bs_pop_context(cc);
+    //bs_push(cc, obj_nil());
 }
 
 void vm_if(compiled_chunk *cc, context_stack *cs, object *o) {
@@ -674,6 +737,12 @@ static void compile_cons(compiled_chunk *cc, context_stack *cs, object *o) {
     }
     else if (func == vm_s_fn) {
         vm_fn(cc, cs, o);
+    }
+    else if (func == vm_s_lambda) {
+        vm_lambda(cc, cs, o);
+    }
+    else if (func == vm_s_funcall) {
+        vm_funcall(cc, cs, o);
     }
     else if(func == vm_s_if) {
         vm_if(cc, cs, o);

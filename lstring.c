@@ -61,7 +61,12 @@ size_t string_cap(string *s) {
 }
 
 const char *string_ptr(string *s) {
-    return s->s;
+    if(s) {
+        return s->s;
+    }
+    else {
+        return "???";
+    }
 }
 
 int string_cmp(string *s1, string *s2) {

@@ -61,6 +61,8 @@
         (do-increments (cdr steps) (append increments `(set ,(car currbind) ,(car (cdr (cdr currbind)))))))
       increments))
 
+;;; (do ((var initform nextform)* )
+;;;   (end-condition-test return-form))
 (defmacro do (steps end-form)
   (let ((conditional (gensym))
         (loop-body (gensym)))
