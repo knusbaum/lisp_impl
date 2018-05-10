@@ -760,7 +760,10 @@ void vm_print(context_stack *cs, long variance) {
         goto *bs->instr;                        \
     };
 
-void *___vm(context_stack *cs, compiled_chunk *cc, int _get_vm_addrs) {
+static inline void *___vm(context_stack *cs, compiled_chunk *cc, int _get_vm_addrs) {
+    if(cs && context_level(cs) > 20000)
+        vm_error_impl(cs, interns("STACK-OVERFLOW"));
+
     if(_get_vm_addrs) {
         map_t *m = map_create(str_eq);
         map_put(m, "chew_top", &&chew_top);
