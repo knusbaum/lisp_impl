@@ -55,6 +55,7 @@ struct object {
         void (*native)(void *, long);
         compiled_chunk *cc;
         struct file_stream *fstream;
+        char character;
     };
     char *name;
 };
@@ -89,7 +90,8 @@ object *new_object(enum obj_type t, void *o) {
         break;
     case O_STACKOFFSET:
     case O_NUM:
-        printf("Cannot assign a num with this function.\n");
+    case O_CHAR:
+        printf("Cannot assign this type of object with this function.\n");
         abort();
         break;
     case O_FN:
@@ -126,6 +128,16 @@ object *new_object_long(long l) {
     add_object_to_gclist(ob);
     ob->type = O_NUM;
     ob->num = l;
+    ob->name = NULL;
+    return ob;
+}
+
+object *new_object_char(char c) {
+    object *ob = malloc(sizeof (object));
+    ob->gcflag = GC_FLAG_BLACK;
+    add_object_to_gclist(ob);
+    ob->type = O_CHAR;
+    ob->character = c;
     ob->name = NULL;
     return ob;
 }
@@ -211,6 +223,8 @@ const char *otype_str(enum obj_type t) {
         return "stack offset";
     case O_FSTREAM:
         return "file stream";
+    case O_CHAR:
+        return "character";
     }
     return "??? corrupt object";
 }
@@ -257,6 +271,19 @@ long oval_long(context_stack *cs, object *o) {
         vm_error_impl(cs, interns("TYPE-ERROR"));
     }
     return o->num;
+}
+
+char oval_char(context_stack *cs, object *o) {
+    if(o->type != O_CHAR) {
+        printf("Expected character, but have: ");
+        print_object(o);
+        printf("\n");
+        //abort();
+        vm_error_impl(cs, interns("TYPE-ERROR"));
+        //(void)(cs);
+        //PANIC("LISP VM GOT TYPE ERROR.");
+    }
+    return o->character;
 }
 
 long oval_stackoffset(context_stack *cs, object *o) {
@@ -409,6 +436,9 @@ static void print_cdr(object *o) {
     case O_FSTREAM:
         printf(" . #<FILE STREAM>");
         break;
+    case O_CHAR:
+        printf(" . #\\%c", o->character);
+        break;
     }
 }
 
@@ -468,6 +498,9 @@ void print_object(object *o) {
         break;
     case O_FSTREAM:
         printf("#<FILE STREAM>");
+        break;
+    case O_CHAR:
+        printf("#\\%c", o->character);
         break;
     }
 }
@@ -584,6 +617,7 @@ void destroy_object(object *o) {
     case O_NUM:
     case O_FN_NATIVE:
     case O_STACKOFFSET:
+    case O_CHAR:
         break;
     case O_CONS:
     case O_FN:

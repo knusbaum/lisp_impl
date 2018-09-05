@@ -103,6 +103,9 @@ void vm_gensym(context_stack *cs, long variance);
 void vm_error(context_stack *cs, long variance);
 void vm_open(context_stack *cs, long variance);
 void vm_close(context_stack *cs, long variance);
+void vm_read_char(context_stack *cs, long variance);
+void vm_str_nth(context_stack *cs, long variance);
+void vm_str_len(context_stack *cs, long variance);
 
 parser *stdin_parser;
 
@@ -142,7 +145,9 @@ void vm_init(context_stack *cs) {
     bind_native_fn(cs, interns("ERROR"), vm_error);
     bind_native_fn(cs, interns("OPEN"), vm_open);
     bind_native_fn(cs, interns("CLOSE"), vm_close);
-
+    bind_native_fn(cs, interns("READ-CHAR"), vm_read_char);
+    bind_native_fn(cs, interns("STR-NTH"), vm_str_nth);
+    bind_native_fn(cs, interns("STR-LEN"), vm_str_len);
 
     addrs = get_vm_addrs();
     special_syms = map_create(sym_equal);
@@ -516,6 +521,9 @@ void resolve(context_stack *cs) {
 
 void vm_macroexpand_rec(context_stack *cs, long rec) {
     object *o = __top();
+//    printf("vm_macroexpand_rec (top): ");
+//    print_object(o);
+//    printf("\n");
     if(rec >= 4096) {
         printf("Cannot expand macro. Nesting too deep.\n");
         //abort();
@@ -525,6 +533,11 @@ void vm_macroexpand_rec(context_stack *cs, long rec) {
     if(otype(o) == O_CONS) {
         object *fsym = ocar(cs, o);
         object *func = lookup_fn(cs, fsym);
+//        printf("fsym: ");
+//        print_object(fsym);
+//        printf("\nfunc: ");
+//        print_object(func);
+//        printf("\n");
         if(func && otype(func) == O_MACRO_COMPILED) {
             // Don't eval the arguments.
             long num_args = 0;
@@ -547,9 +560,28 @@ void vm_macroexpand_rec(context_stack *cs, long rec) {
                 }
             }
 
-            run_vm(cs, oval_fn_compiled(cs, func));
+//            printf("Running function: ");
+//            print_object(func);
+//            printf("\n");
+            compiled_chunk *func_cc = oval_fn_compiled(cs, func);
+//            map_t *addrs_to_name = map_reverse(addrs);
+//            for(size_t i = 0; i < func_cc->b_off; i++) {
+//                printf("%ld: %p:%s ", i, func_cc->bs[i].instr, (char *)map_get(addrs_to_name, func_cc->bs[i].instr));
+//                if(func_cc->bs[i].has_arg) {
+//                    printf("<");
+//                    print_object(func_cc->bs[i].arg);
+//                    printf(">");
+//                }
+//                printf("\n");
+//            }
+//            map_destroy(addrs_to_name);
+            run_vm(cs, func_cc);
+
 
             object *exp = pop();
+//            printf("Expression: ");
+//            print_object(exp);
+//            printf("\n");
             for(int i = 0; i < num_args; i++) {
                 pop();
             }
@@ -682,6 +714,50 @@ void vm_close(context_stack *cs, long variance) {
     __push(obj_nil());
 }
 
+void vm_read_char(context_stack *cs, long variance) {
+    if(variance != 1) {
+        printf("Expected exactly 1 argument, but got %ld.\n", variance);
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
+    }
+    object *o = pop();
+    FILE *f = fstream_file(cs, o);
+    int c = getc(f);
+    if(c == EOF) {
+        vm_error_impl(cs, interns("END-OF-FILE"));
+    }
+    __push(new_object_char(c));
+}
+
+void vm_str_nth(context_stack *cs, long variance) {
+    if(variance != 2) {
+        printf("Expected exactly 2 arguments, but got %ld.\n", variance);
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
+    }
+    object *elem = pop();
+    object *str = pop();
+    string *lstr = oval_string(cs, str);
+    size_t celem = oval_long(cs, elem);
+    if(celem >= string_len(lstr)) {
+        vm_error_impl(cs, interns("ARRAY-OUT-OF-BOUNDS"));
+    }
+    int c = string_ptr(lstr)[celem];
+    __push(new_object_char(c));
+}
+
+void vm_str_len(context_stack *cs, long variance) {
+    if(variance != 1) {
+        printf("Expected exactly 1 argument, but got %ld.\n", variance);
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
+    }
+    object *str = pop();
+    string *lstr = oval_string(cs, str);
+    long len = string_len(lstr) - 1;
+    __push(new_object_long(len));
+}
+
 void vm_eval(context_stack *cs, long variance) {
     if(variance != 1) {
         printf("Expected exactly 1 argument, but got %ld.\n", variance);
@@ -703,6 +779,9 @@ void vm_eval(context_stack *cs, long variance) {
     }
 
     object *o = __pop();
+//    printf("Macroexpanded: ");
+//    print_object(o);
+//    printf("\n");
     compile_form(cc, cs, o);
     run_vm(cs, cc);
     free_compiled_chunk(cc);
@@ -828,6 +907,7 @@ push:
     //print_object(bs->arg);
     //printf("\n");
     __push(bs->arg);
+    //dump_stack();
     NEXTI;
 pop:
     //printf("%ld@%p POP: ", bs - cc->bs, cc);
@@ -839,6 +919,7 @@ pop:
 call:
     //printf("%ld@%p CALL (%ld)\n", bs - cc->bs, cc, bs->variance);
     call(cs, bs->variance);
+    //dump_stack();
     NEXTI;
 resolve_sym:
     //printf("%ld@%p RESOLVE_SYM\n", bs - cc->bs, cc);
@@ -887,8 +968,8 @@ go_if_nil:
 go_if_not_nil:
     target = (size_t)map_get(cc->labels, bs->str);
     //printf("%ld@%p (%p)GO_IF_NOT_NIL (%s)(%ld) ", bs - cc->bs, cc, bs, bs->str, target);
-//    bs->instr = &&go_if_not_nil_optim;
-//    bs->offset = target;
+    bs->instr = &&go_if_not_nil_optim;
+    bs->offset = target;
     if(__pop() != obj_nil()) {
         //printf("(jumping to %p)\n", (cc->bs + target)->instr);
         bs = cc->bs + target;
@@ -903,6 +984,15 @@ go_optim:
 go_if_nil_optim:
     //printf("%ld@%p GO_IF_NIL_OPTIM (%ld) ", bs - cc->bs, cc, bs->offset);
     if(__pop() == obj_nil()) {
+        //printf("(jumping)\n");
+        bs = cc->bs + bs->offset;
+        goto *bs->instr;
+    }
+    //printf("(not jumping)\n");
+    NEXTI;
+go_if_not_nil_optim:
+    //printf("%ld@%p GO_IF_NOT_NIL_OPTIM (%ld) ", bs - cc->bs, cc, bs->offset);
+    if(__pop() != obj_nil()) {
         //printf("(jumping)\n");
         bs = cc->bs + bs->offset;
         goto *bs->instr;
@@ -980,7 +1070,7 @@ pop_to_stack:
     }
     else {
         stack[s_off - 1 - bs->offset] = __top();
-//        printf("=============================\n");
+//        //printf("=============================\n");
         //dump_stack();
         __pop();
 //        printf("=============================\n");
