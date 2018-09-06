@@ -521,9 +521,6 @@ void resolve(context_stack *cs) {
 
 void vm_macroexpand_rec(context_stack *cs, long rec) {
     object *o = __top();
-//    printf("vm_macroexpand_rec (top): ");
-//    print_object(o);
-//    printf("\n");
     if(rec >= 4096) {
         printf("Cannot expand macro. Nesting too deep.\n");
         //abort();
@@ -533,11 +530,7 @@ void vm_macroexpand_rec(context_stack *cs, long rec) {
     if(otype(o) == O_CONS) {
         object *fsym = ocar(cs, o);
         object *func = lookup_fn(cs, fsym);
-//        printf("fsym: ");
-//        print_object(fsym);
-//        printf("\nfunc: ");
-//        print_object(func);
-//        printf("\n");
+
         if(func && otype(func) == O_MACRO_COMPILED) {
             // Don't eval the arguments.
             long num_args = 0;
@@ -560,28 +553,11 @@ void vm_macroexpand_rec(context_stack *cs, long rec) {
                 }
             }
 
-//            printf("Running function: ");
-//            print_object(func);
-//            printf("\n");
             compiled_chunk *func_cc = oval_fn_compiled(cs, func);
-//            map_t *addrs_to_name = map_reverse(addrs);
-//            for(size_t i = 0; i < func_cc->b_off; i++) {
-//                printf("%ld: %p:%s ", i, func_cc->bs[i].instr, (char *)map_get(addrs_to_name, func_cc->bs[i].instr));
-//                if(func_cc->bs[i].has_arg) {
-//                    printf("<");
-//                    print_object(func_cc->bs[i].arg);
-//                    printf(">");
-//                }
-//                printf("\n");
-//            }
-//            map_destroy(addrs_to_name);
             run_vm(cs, func_cc);
 
 
             object *exp = pop();
-//            printf("Expression: ");
-//            print_object(exp);
-//            printf("\n");
             for(int i = 0; i < num_args; i++) {
                 pop();
             }
@@ -683,15 +659,8 @@ void vm_error_impl(context_stack *cs, object *sym) {
 }
 
 jmp_buf *vm_push_trap(context_stack *cs, object *sym) {
-    //printf("Entering vm_push_trap.\n");
     jmp_buf *buff = __push_trap(cs, sym);
-    //int ret = setjmp(*buff);
-    //printf("Returning: %d\n", ret);
     return buff;
-    //if(setjmp(*buff)) {
-    //    printf("CAUGHT ERROR!\n");
-    //    abort();
-    //}
 }
 
 void vm_open(context_stack *cs, long variance) {
@@ -802,14 +771,11 @@ void vm_read(context_stack *cs, long variance) {
         object *o = pop();
         //printf("Creating parser from object: ");
         //print_object(o);
-        //printf("\n");
+        //printf("@%x\n", o);
         p = new_parser_file(fstream_file(cs, o));
     }
     object *o = next_form(p, cs);
     if(o) {
-//        printf("Result: ");
-//        print_object(o);
-//        printf("\n");
         __push(o);
     }
     else {
@@ -943,7 +909,6 @@ push_lex_context:
     NEXTI;
 pop_lex_context:
     //printf("%ld@%p POP_LEX_CONTEXT: %p\n", bs - cc->bs, cc, top_context(cs));
-    //free_context(pop_context(cs));
     pop_context(cs);
     NEXTI;
 go:
@@ -1070,10 +1035,8 @@ pop_to_stack:
     }
     else {
         stack[s_off - 1 - bs->offset] = __top();
-//        //printf("=============================\n");
         //dump_stack();
         __pop();
-//        printf("=============================\n");
         //dump_stack();
     }
     NEXTI;

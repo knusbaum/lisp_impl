@@ -21,6 +21,7 @@ int main(void) {
 
     //bootstrapping the system
     {
+        printf("Loading bootstrap.lisp.\n");
         FILE *f = fopen("bootstrap.lisp", "r");
         if(!f) {
             printf("!!!!!!!!!!\nFailed to bootstrap this lisp. bootstrap.lisp is missing.\nGood luck.\n!!!!!!!!!!\n");
@@ -50,6 +51,7 @@ int main(void) {
     pthread_t gc_thread;
     pthread_create(&gc_thread, NULL, run_gc_loop, cs);
 
+    printf("Starting REPL.\n");
     compiled_chunk *cc = repl(cs);
     while(1) {
         //printf("\n\n");

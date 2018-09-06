@@ -280,8 +280,6 @@ char oval_char(context_stack *cs, object *o) {
         printf("\n");
         //abort();
         vm_error_impl(cs, interns("TYPE-ERROR"));
-        //(void)(cs);
-        //PANIC("LISP VM GOT TYPE ERROR.");
     }
     return o->character;
 }

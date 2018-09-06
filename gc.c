@@ -65,27 +65,20 @@ void gc(context_stack *cs) {
     gq_head = 0;
     gq_size = INIT_STACK;
 
-//    printf("Waiting on gc_mut.\n");
     pthread_mutex_lock(get_gc_mut());
-//    printf("Running GC.\n");
     size_t local_o_off = o_off;
     //pthread_mutex_unlock(get_gc_mut());
-    
+
     for(size_t i = 0; i < local_o_off; i++) {
         set_gc_flag(olist[i], GC_FLAG_WHITE);
     }
 
     struct sym_val_pair svp;
-    
+
     context_var_iterator *cvi = iterate_vars(cs);
     context_var_iterator *curr_var = cvi;
     while(curr_var) {
         svp = context_var_iterator_values(cvi);
-//        printf("marking grey: (");
-//        print_object(svp.sym);
-//        printf(")\t(");
-//        print_object(svp.val);
-//        printf(")\n");
         set_gc_flag(svp.sym, GC_FLAG_GREY);
         set_gc_flag(svp.val, GC_FLAG_GREY);
         enqueue_grey_queue(svp.sym);
@@ -112,7 +105,7 @@ void gc(context_stack *cs) {
         enqueue_grey_queue(stack[i]);
     }
 
-    map_t *interned = get_interned();    
+    map_t *interned = get_interned();
 
     map_iterator *interned_it = iterate_map(interned);
     map_iterator *interned_curr = interned_it;
@@ -126,12 +119,12 @@ void gc(context_stack *cs) {
         }
         if(gc_flag(mp.val) == GC_FLAG_WHITE) {
             set_gc_flag(mp.val, GC_FLAG_BLACK);
-            //enqueue_grey_queue(mp.val); 
+            //enqueue_grey_queue(mp.val);
         }
         interned_curr = map_iterator_next(interned_curr);
     }
     destroy_map_iterator(interned_it);
-    
+
     map_t *internals = get_internals();
     map_iterator *internal_it = iterate_map(internals);
     map_iterator *internal_curr = internal_it;
@@ -158,6 +151,7 @@ void gc(context_stack *cs) {
     struct map_pair mp;
     while(grey) {
         switch(otype(grey)) {
+        case O_CHAR:
         case O_SYM:
         case O_STR:
         case O_NUM:
@@ -193,9 +187,6 @@ void gc(context_stack *cs) {
             break;
         case O_MACRO_COMPILED:
         case O_FN_COMPILED:
-            //printf("O FN IS: ");
-            //print_object(grey);
-            //printf(" (%p)\n", grey);
             cc = oval_fn_compiled(NULL, grey);
             for(i = 0; i < cc->b_off; i++) {
                 if(cc->bs[i].has_arg && cc->bs[i].arg) {
@@ -205,25 +196,11 @@ void gc(context_stack *cs) {
                     }
                 }
             }
-//            if(cc->labels) {
-//                it = iterate_map(cc->labels);
-//                curr = it;
-//                while(curr) {
-//                    mp = map_iterator_values(curr);
-//                    
-//                }
-//            }
             if(cc->c) {
-                //printf("Context is at: (%p)\n", cc->c);
                 it = iterate_map(context_vars(cc->c));
                 curr = it;
                 while(curr) {
                     mp = map_iterator_values(curr);
-                    //printf("CHECKING: ");
-                    //print_object(mp.key);
-                    //printf(" and ");
-                    //print_object(mp.val);
-                    //printf("\n");
                     if(gc_flag(mp.key) == GC_FLAG_WHITE) {
                         set_gc_flag(mp.key, GC_FLAG_GREY);
                         enqueue_grey_queue(mp.key);
@@ -238,31 +215,20 @@ void gc(context_stack *cs) {
             }
             break;
         }
-        
+
         set_gc_flag(grey, GC_FLAG_BLACK);
         grey = dequeue_grey_queue();
     }
 
     // Actually free some stuff
-
-//    for(size_t i = 0; i < o_off; i++) {
-//        if(gc_flag(olist[i]) == GC_FLAG_WHITE) {
-//            printf("FREEING: ");
-//            print_object(olist[i]);
-//            printf(" (%p)\n", olist[i]);
-//        }
-//    }
-    //printf("[gc]Locking GC MUT:\n");
-    //pthread_mutex_lock(get_gc_mut());
-    //printf("[gc]Locked GC MUT:\n");
     size_t new_olist_size = o_size;
     object **new_olist = malloc(new_olist_size * sizeof (object *));
     size_t new_olist_off = 0;
     for(size_t i = 0; i < o_off; i++) {
         if(gc_flag(olist[i]) == GC_FLAG_WHITE) {
-//            printf("Freeing object at %p\n", olist[i]);
+//            printf("Freeing object: ");
 //            print_object(olist[i]);
-//            printf("\n");
+//            printf("@%x\n", olist[i]);
             destroy_object(olist[i]);
         }
         else {
@@ -270,25 +236,12 @@ void gc(context_stack *cs) {
         }
     }
 
-    
-//    for(size_t i = local_o_off; i < o_off; i++) {
-//        // Copy the remainder into the new grey list.
-//        if(new_olist_off == new_olist_size) {
-//            new_olist_size *= 2;
-//            new_olist = realloc(new_olist, new_olist_size * sizeof (object *));
-//        }
-//        new_olist[new_olist_off++] = olist[i];
-//    }
-    
     free(olist);
     olist = new_olist;
     o_off = new_olist_off;
     o_size = new_olist_size;
-    //printf("[gc]UNLocking GC MUT:\n");
     pthread_mutex_unlock(get_gc_mut());
-    //printf("[gc]UNLocked GC MUT:\n");
-    
-    //memset(grey_queue, 0, gq_size * sizeof (object *));
+
     free(grey_queue);
     gq_off = 0;
     gq_head = 0;
