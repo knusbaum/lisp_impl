@@ -1,5 +1,5 @@
-#include <stdlib.h>
-#include <stdio.h>
+#include "../stdio.h"
+#include "../common.h"
 #include "parser.h"
 #include "lexer.h"
 #include "map.h"

@@ -15,4 +15,7 @@ void add_object_to_gclist(object *o);
 
 void dump_heap();
 
+// quick and dirty hack to enable/disable GC.
+extern int enable_gc;
+
 #endif

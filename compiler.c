@@ -1,5 +1,4 @@
-#include <stdlib.h>
-#include <string.h>
+#include "../common.h"
 #include "compiler.h"
 #include "threaded_vm.h"
 #include "map.h"
@@ -31,7 +30,7 @@ map_t *get_internals() {
 unsigned int i;
 char *mk_label() {
     char *label = malloc(12); // 10 digits + L + \0
-    sprintf(label, "L%u", i++);
+    sprintf(label, "L%d", i++);
     return label;
 }
 
@@ -728,7 +727,6 @@ void vm_set(compiled_chunk *cc, context_stack *cs, object *o) {
 
 static void compile_cons(compiled_chunk *cc, context_stack *cs, object *o) {
     object *func = ocar(cs, o);
-
     if(func == vm_s_quote) {
         bs_push(cc, ocar(cs, ocdr(cs, o)));
     }

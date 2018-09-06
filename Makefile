@@ -1,6 +1,6 @@
-CFLAGS=-ggdb -O0 -Wall -Wextra -Werror
+CFLAGS=-ggdb -m32 -O0 -Wall -Wextra -Werror -ffreestanding
 EXECUTABLE=lisp
-LDFLAGS=-lpthread
+LDFLAGS=-lpthread -nostdlib -lgcc
 
 OBJECTS=main.o \
 		lexer.o \
@@ -13,7 +13,7 @@ OBJECTS=main.o \
 		compiler.o \
 		gc.o
 
-all: lisp
+all: $(OBJECTS)
 
 lisp: $(OBJECTS)
 	$(CC) $(CFLAGS) $(LDFLAGS) $(OBJECTS) -o $(EXECUTABLE)

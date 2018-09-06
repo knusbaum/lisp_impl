@@ -1,7 +1,7 @@
 #ifndef LSTRING_H
 #define LSTRING_H
 
-#include <stddef.h>
+#include "../stddef.h"
 
 // String mechanics
 

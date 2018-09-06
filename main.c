@@ -1,7 +1,6 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <pthread.h>
-#include <setjmp.h>
+#include "../stdio.h"
+#include "../setjmp.h"
+#include "../common.h"
 #include "lexer.h"
 #include "parser.h"
 #include "context.h"
@@ -22,7 +21,7 @@ int main(void) {
     //bootstrapping the system
     {
         printf("Loading bootstrap.lisp.\n");
-        FILE *f = fopen("bootstrap.lisp", "r");
+        FILE *f = fopen("/bootstrap.lisp", "r");
         if(!f) {
             printf("!!!!!!!!!!\nFailed to bootstrap this lisp. bootstrap.lisp is missing.\nGood luck.\n!!!!!!!!!!\n");
         }
@@ -39,7 +38,7 @@ int main(void) {
                     print_object(pop());
                     printf("\nfailed to load bootstrapping file,\n");
                     dump_stack();
-                    abort();
+                    PANIC("Failed to load lisp bootstrap file.");
                 }
                 run_vm(cs, bootstrap);
                 pop(); // pop result
@@ -48,8 +47,9 @@ int main(void) {
         }
     }
 
-    pthread_t gc_thread;
-    pthread_create(&gc_thread, NULL, run_gc_loop, cs);
+//    pthread_t gc_thread;
+//    pthread_create(&gc_thread, NULL, run_gc_loop, cs);
+    enable_gc = 1;
 
     printf("Starting REPL.\n");
     compiled_chunk *cc = repl(cs);
@@ -80,4 +80,5 @@ int main(void) {
     }
 
     printf("Shutting down.\n");
+    return 0;
 }

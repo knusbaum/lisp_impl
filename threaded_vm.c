@@ -1,7 +1,5 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <setjmp.h>
+#include "../stdio.h"
+#include "../common.h"
 #include "threaded_vm.h"
 #include "context.h"
 #include "map.h"
@@ -15,10 +13,10 @@ static int str_eq(void *s1, void *s2) {
 map_t *addrs;
 //map_t *get_vm_addrs();
 
-pthread_mutex_t gc_mut;
-pthread_mutex_t *get_gc_mut() {
-    return &gc_mut;
-}
+//pthread_mutex_t gc_mut;
+//pthread_mutex_t *get_gc_mut() {
+//    return &gc_mut;
+//}
 
 map_t *special_syms;
 
@@ -110,8 +108,8 @@ void vm_str_len(context_stack *cs, long variance);
 parser *stdin_parser;
 
 void vm_init(context_stack *cs) {
-    pthread_mutex_init(&gc_mut, NULL); //fastmutex; //PTHREAD_MUTEX_INITIALIZER;
-    pthread_mutex_lock(&gc_mut);
+//    pthread_mutex_init(&gc_mut, NULL); //fastmutex; //PTHREAD_MUTEX_INITIALIZER;
+//    pthread_mutex_lock(&gc_mut);
 
     stack = malloc(sizeof (object *) * INIT_STACK);
     s_off = 0;
@@ -154,7 +152,7 @@ void vm_init(context_stack *cs) {
     map_put(special_syms, obj_t(), (void *)1);
     map_put(special_syms, obj_nil(), (void *)1);
 
-    stdin_parser = new_parser_file(stdin);
+    stdin_parser = new_parser_file(stdino);
 }
 
 static inline void __push(object *o) {
@@ -518,7 +516,6 @@ void resolve(context_stack *cs) {
     }
 }
 
-
 void vm_macroexpand_rec(context_stack *cs, long rec) {
     object *o = __top();
     if(rec >= 4096) {
@@ -555,7 +552,6 @@ void vm_macroexpand_rec(context_stack *cs, long rec) {
 
             compiled_chunk *func_cc = oval_fn_compiled(cs, func);
             run_vm(cs, func_cc);
-
 
             object *exp = pop();
             for(int i = 0; i < num_args; i++) {
@@ -601,7 +597,7 @@ void vm_gensym(context_stack *cs, long variance) {
     }
 
     char *gensym = malloc(18); // 10 digits + "gensym-"(7) + \0
-    sprintf(gensym, "gensym-%u", gensym_num++);
+    sprintf(gensym, "gensym-%d", gensym_num++);
     object *new_gensym = interns(gensym);
     free(gensym);
     __push(new_gensym);
@@ -632,7 +628,7 @@ void vm_error_impl(context_stack *cs, object *sym) {
            || trap_stack[i].catcher == obj_nil()) {
             if(!cs) {
                 printf("Cannot handle error without context_stack.\n");
-                abort();
+                PANIC("Cannot handle error without context_stack.");
             }
 
 //            printf("%ld Current s_off: %ld, after trap_stack_off: %ld\n", i, s_off, trap_stack[i].s_off);
@@ -655,7 +651,7 @@ void vm_error_impl(context_stack *cs, object *sym) {
     printf(" FAILED TO CATCH ERROR: ");
     print_object(sym);
     printf(" ABORTING!\n");
-    abort(); // This has to be an abort. We can't continue.
+    PANIC("UNCAUGHT LISP VM EXCEPTION."); // This has to be an abort. We can't continue.
 }
 
 jmp_buf *vm_push_trap(context_stack *cs, object *sym) {
@@ -1053,8 +1049,9 @@ restore_stackoff:
 exit:
     //printf("%ld@%p EXIT\n", bs - cc->bs, cc);
     //dump_stack();
-    pthread_mutex_unlock(&gc_mut);
-    pthread_mutex_lock(&gc_mut);
+//    pthread_mutex_unlock(&gc_mut);
+//    pthread_mutex_lock(&gc_mut);
+    gc(cs);
     return NULL;
 }
 

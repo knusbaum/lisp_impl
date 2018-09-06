@@ -1,7 +1,7 @@
 #ifndef LEXER_H
 #define LEXER_H
 
-#include <stdio.h>
+#include "../stdio.h"
 
 enum toktype {
     NONE = 0,

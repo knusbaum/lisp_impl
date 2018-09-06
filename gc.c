@@ -1,8 +1,5 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <pthread.h>
-#include <unistd.h>
+#include "../stdio.h"
+#include "../common.h"
 #include "gc.h"
 #include "object.h"
 #include "threaded_vm.h"
@@ -46,28 +43,33 @@ void gc_init() {
     olist = malloc(sizeof (object *) * INIT_STACK);
     o_off = 0;
     o_size = INIT_STACK;
- }
-
-void *run_gc_loop(void *cs) {
-    while(1) {
-        //pthread_mutex_lock(get_gc_mut());
-        gc((context_stack *)cs);
-        //pthread_mutex_unlock(get_gc_mut());
-        sleep(1);
-    }
-    return NULL;
+    enable_gc = 0;
 }
 
+//void *run_gc_loop(void *cs) {
+//    while(1) {
+//        //pthread_mutex_lock(get_gc_mut());
+//        gc((context_stack *)cs);
+//        //pthread_mutex_unlock(get_gc_mut());
+//        sleep(1);
+//    }
+//    return NULL;
+//}
+
+int gci;
+int enable_gc;
 void gc(context_stack *cs) {
+    gci++;
+    if((gci % 1000) != 0) return;
+    if(!enable_gc) return;
     //printf("\nStarting GC\n");
     grey_queue = malloc(sizeof (object *) * INIT_STACK);
     gq_off = 0;
     gq_head = 0;
     gq_size = INIT_STACK;
 
-    pthread_mutex_lock(get_gc_mut());
+    //pthread_mutex_lock(get_gc_mut());
     size_t local_o_off = o_off;
-    //pthread_mutex_unlock(get_gc_mut());
 
     for(size_t i = 0; i < local_o_off; i++) {
         set_gc_flag(olist[i], GC_FLAG_WHITE);
@@ -240,7 +242,7 @@ void gc(context_stack *cs) {
     olist = new_olist;
     o_off = new_olist_off;
     o_size = new_olist_size;
-    pthread_mutex_unlock(get_gc_mut());
+    //pthread_mutex_unlock(get_gc_mut());
 
     free(grey_queue);
     gq_off = 0;

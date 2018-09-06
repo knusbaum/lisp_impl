@@ -1,6 +1,5 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
+#include "../stdio.h"
+#include "../common.h"
 #include "context.h"
 #include "map.h"
 
@@ -118,7 +117,7 @@ void pop_context_to_level(context_stack *cs, size_t level) {
     if(cs->cstackoff < level) {
         printf("CANNOT POP CONTEXT. TRIED TO GO TO LEVEL %ld BUT ALREADY AT LEVEL %ld\n",
                level, cs->cstackoff);
-        abort(); // This NEEDS to be an abort. the VM cannot recover.
+        PANIC("Lisp VM Died. context.c:122"); // This NEEDS to be an abort. the VM cannot recover.
     }
     cs->cstackoff = level;
 }

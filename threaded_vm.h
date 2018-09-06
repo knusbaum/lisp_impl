@@ -1,8 +1,8 @@
 #ifndef THREADED_VM_H
 #define THREADED_VM_H
 
-#include <pthread.h>
-#include <setjmp.h>
+//#include <pthread.h>
+#include "../setjmp.h"
 #include "object.h"
 #include "context.h"
 #include "map.h"
@@ -26,7 +26,8 @@ void call(context_stack *c, long variance);
 object **get_stack();
 size_t get_stack_off();
 
-pthread_mutex_t *get_gc_mut();
+/****** Need Threads Impl ******/
+//pthread_mutex_t *get_gc_mut();
 
 void vm_error_impl(context_stack *cs, object *sym);
 jmp_buf *vm_push_trap(context_stack *cs, object *sym);

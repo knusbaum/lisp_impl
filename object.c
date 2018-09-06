@@ -1,6 +1,5 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
+#include "../stdio.h"
+#include "../common.h"
 #include "object.h"
 #include "compiler.h"
 #include "map.h"
@@ -91,8 +90,7 @@ object *new_object(enum obj_type t, void *o) {
     case O_STACKOFFSET:
     case O_NUM:
     case O_CHAR:
-        printf("Cannot assign this type of object with this function.\n");
-        abort();
+        PANIC("Cannot assign this type of object with this function.");
         break;
     case O_FN:
     case O_MACRO:
@@ -509,7 +507,7 @@ object *new_object_fstream(context_stack *cs, string *fname, char *mode) {
     struct file_stream *fs = malloc(sizeof (struct file_stream));
     FILE *f = fopen(string_ptr(fname), mode);
     if(!f) {
-        perror("Couldn't open file: ");
+        printf("Couldn't open file.\n");
         vm_error_impl(cs, interns("FILE-OPEN-ERROR"));
     }
     fs->fstream = f;

@@ -2,7 +2,7 @@
 #define OBJECT_H
 
 #include <stdarg.h>
-#include <stdio.h>
+#include "../stdio.h"
 #include "lstring.h"
 #include "map.h"
 

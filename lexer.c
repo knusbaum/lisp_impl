@@ -1,7 +1,5 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <ctype.h>
-#include <string.h>
+#include "../stdio.h"
+#include "../common.h"
 #include "lexer.h"
 #include "lstring.h"
 
@@ -84,7 +82,7 @@ static void match(struct lexer *lex, int c) {
     // This should never happen. If it does, it is a bug in the VM.
     printf("BAD MATCH! Wanted: %c, got: %c\n", c, look(lex));
     printf("This is a bug. Please report this.\n");
-    abort();
+    PANIC("LISP QUIT!");
 }
 
 static void append_escaped(string *s, int c) {
