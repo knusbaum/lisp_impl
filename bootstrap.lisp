@@ -125,3 +125,13 @@
         (progn
           (close f)
           chrs))))
+
+(fn slurp (fname)
+    (let ((f (open fname))
+          (str ""))
+      (catch ('end-of-file e)
+        (for (c (read-char f)) t (set c (read-char f))
+             (str-append str c))
+        (progn
+          (close f)
+          str))))
