@@ -88,6 +88,8 @@ void vm_append(context_stack *cs, long variance);
 void vm_splice(context_stack *cs, long variance);
 void vm_car(context_stack *cs, long variance);
 void vm_cdr(context_stack *cs, long variance);
+void vm_setcar(context_stack *cs, long variance);
+void vm_setcdr(context_stack *cs, long variance);
 void vm_cons(context_stack *cs, long variance);
 void vm_length(context_stack *cs, long variance);
 void vm_eq(context_stack *cs, long variance);
@@ -106,6 +108,9 @@ void vm_close(context_stack *cs, long variance);
 void vm_read_char(context_stack *cs, long variance);
 void vm_str_nth(context_stack *cs, long variance);
 void vm_str_len(context_stack *cs, long variance);
+void vm_str_setnth(context_stack *cs, long variance);
+void vm_str_append(context_stack *cs, long variance);
+void vm_str_copy(context_stack *cs, long variance);
 
 parser *stdin_parser;
 
@@ -131,6 +136,8 @@ void vm_init(context_stack *cs) {
     bind_native_fn(cs, interns("SPLICE"), vm_splice);
     bind_native_fn(cs, interns("CAR"), vm_car);
     bind_native_fn(cs, interns("CDR"), vm_cdr);
+    bind_native_fn(cs, interns("SETCAR"), vm_setcar);
+    bind_native_fn(cs, interns("SETCDR"), vm_setcdr);
     bind_native_fn(cs, interns("CONS"), vm_cons);
     bind_native_fn(cs, interns("LENGTH"), vm_length);
     bind_native_fn(cs, interns("EQ"), vm_eq);
@@ -148,6 +155,9 @@ void vm_init(context_stack *cs) {
     bind_native_fn(cs, interns("READ-CHAR"), vm_read_char);
     bind_native_fn(cs, interns("STR-NTH"), vm_str_nth);
     bind_native_fn(cs, interns("STR-LEN"), vm_str_len);
+    bind_native_fn(cs, interns("STR-SETNTH"), vm_str_setnth);
+    bind_native_fn(cs, interns("STR-APPEND"), vm_str_append);
+    bind_native_fn(cs, interns("STR-COPY"), vm_str_copy);
 
     addrs = get_vm_addrs();
     special_syms = map_create(sym_equal);
@@ -344,6 +354,30 @@ void vm_cdr(context_stack *cs, long variance) {
     }
     object *list = __pop();
     __push(ocdr(cs, list));
+}
+
+void vm_setcar(context_stack *cs, long variance) {
+    if(variance != 2) {
+        printf("Expected exactly 2 arguments, but got %ld.\n", variance);
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
+    }
+    object *o = __pop();
+    object *list = __pop();
+    osetcar(cs, list, o);
+    __push(list);
+}
+
+void vm_setcdr(context_stack *cs, long variance) {
+    if(variance != 2) {
+        printf("Expected exactly 2 arguments, but got %ld.\n", variance);
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
+    }
+    object *o = __pop();
+    object *list = __pop();
+    osetcdr(cs, list, o);
+    __push(list);
 }
 
 void vm_cons(context_stack *cs, long variance) {
@@ -727,6 +761,50 @@ void vm_str_len(context_stack *cs, long variance) {
     __push(new_object_long(len));
 }
 
+void vm_str_setnth(context_stack *cs, long variance) {
+    if(variance != 3) {
+        printf("Expected exactly 3 arguments, but got %ld.\n", variance);
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
+    }
+    object *c = pop();
+    object *elem = pop();
+    object *str = pop();
+    string *lstr = oval_string(cs, str);
+    size_t celem = oval_long(cs, elem);
+    if(celem >= string_len(lstr)) {
+        vm_error_impl(cs, interns("ARRAY-OUT-OF-BOUNDS"));
+    }
+
+    string_set(lstr, oval_long(cs, elem), oval_char(cs, c));
+    __push(str);
+}
+
+void vm_str_append(context_stack *cs, long variance) {
+    if(variance != 2) {
+        printf("Expected exactly 2 arguments, but got %ld.\n", variance);
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
+    }
+    object *c = pop();
+    object *str = pop();
+    string *lstr = oval_string(cs, str);
+    string_append(lstr, oval_char(cs, c));
+    __push(str);
+}
+
+void vm_str_copy(context_stack *cs, long variance) {
+    if(variance != 1) {
+        printf("Expected exactly 1 argument, but got %ld.\n", variance);
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
+    }
+    object *str = pop();
+    string *lstr = oval_string(cs, str);
+    object *newstr = new_object(O_STR, new_string_copy(string_ptr(lstr)));
+    __push(newstr);
+}
+
 void vm_eval(context_stack *cs, long variance) {
     if(variance != 1) {
         printf("Expected exactly 1 argument, but got %ld.\n", variance);
@@ -794,6 +872,7 @@ void vm_print(context_stack *cs, long variance) {
         vm_error_impl(cs, interns("SIG-ERROR"));
     }
     print_object(__pop());
+    printf("\n");
     __push(obj_nil());
 }
 

@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "lstring.h"
@@ -21,13 +22,18 @@ string *new_string() {
 }
 
 string *new_string_copy(const char *c) {
-    struct string *s = malloc(sizeof (struct string));
-    size_t size = strlen(c) + 1;
-    s->s = malloc(size);
-    strcpy(s->s, c);
-    s->cap = size;
-    s->len = size;
-    return s;
+    if(c) {
+        struct string *s = malloc(sizeof (struct string));
+        size_t size = strlen(c) + 1;
+        s->s = malloc(size);
+        strcpy(s->s, c);
+        s->cap = size;
+        s->len = size - 1;
+        return s;
+    }
+    else {
+        return new_string();
+    }
 }
 
 void string_append(string *s, char c) {
@@ -42,9 +48,16 @@ void string_append(string *s, char c) {
         s->cap *= 2;
         s->s = realloc(s->s, s->cap);
     }
-
     s->s[s->len++] = c;
     s->s[s->len] = 0;
+}
+
+void string_set(string *s, size_t elem, char c) {
+    if(elem >= string_len(s)) {
+        printf("string set out of bounds.");
+        abort();
+    }
+    s->s[elem] = c;
 }
 
 void string_trim_capacity(string *s) {
@@ -62,7 +75,10 @@ size_t string_cap(string *s) {
 
 const char *string_ptr(string *s) {
     if(s) {
-        return s->s;
+        if(s->s) {
+            return s->s;
+        }
+        return "";
     }
     else {
         return "???";

@@ -421,7 +421,18 @@ static void vm_let(compiled_chunk *cc, context_stack *cs, object *o) {
     for(object *frm = letlist; frm != obj_nil(); frm = ocdr(cs, frm)) {
         object *assign = ocar(cs, frm);
         object *sym = ocar(cs, assign);
-        compile_bytecode(cc, cs, ocar(cs, ocdr(cs, assign)));
+
+        object *target = ocar(cs, ocdr(cs, assign));
+        if(otype(target) == O_STR) {
+            // Special case for strings (mutable)
+            // This should probably be moved somewhere more generic,
+            // instead of being a weird special-case.
+            object *copy_str = new_object_cons(interns("STR-COPY"), new_object_cons(target, obj_nil()));
+            compile_bytecode(cc, cs, copy_str);
+        }
+        else {
+            compile_bytecode(cc, cs, target);
+        }
         bs_bind(cc, cs, sym);
         pushlen++;
     }
