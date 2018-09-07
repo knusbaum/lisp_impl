@@ -1,7 +1,5 @@
 #include "../common.h"
 #include "../stdio.h"
-#include <stdlib.h>
-#include <string.h>
 #include "lstring.h"
 
 /** String Machinery **/
@@ -55,8 +53,7 @@ void string_append(string *s, char c) {
 
 void string_set(string *s, size_t elem, char c) {
     if(elem >= string_len(s)) {
-        printf("string set out of bounds.");
-        abort();
+        PANIC("string set out of bounds.");
     }
     s->s[elem] = c;
 }
