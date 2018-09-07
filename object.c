@@ -393,9 +393,23 @@ object *osetcdr(context_stack *cs, object *o, object *cdr) {
     return cdr;
 }
 
+static char *char_to_name(char c) {
+    switch(c) {
+    case '\n':
+        return "NewLine";
+    case ' ':
+        return "Space";
+    case '\t':
+        return "Tab";
+    default:
+        return NULL;
+    }
+}
+
 static void print_cons(cons *c);
 
 static void print_cdr(object *o) {
+    char *name;
     switch(otype(o)) {
     case O_KEYWORD:
     case O_SYM:
@@ -433,7 +447,13 @@ static void print_cdr(object *o) {
         printf(" . #<FILE STREAM>");
         break;
     case O_CHAR:
-        printf(" . #\\%c", o->character);
+        name = char_to_name(o->character);
+        if(name) {
+            printf(" . #\\%s", name);
+        }
+        else {
+            printf(" . #\\%c", o->character);
+        }
         break;
     }
 }
@@ -460,6 +480,7 @@ void print_object(object *o) {
         printf("[[NULL]]");
         return;
     }
+    char *name;
     switch(otype(o)) {
     case O_KEYWORD:
     case O_SYM:
@@ -496,7 +517,13 @@ void print_object(object *o) {
         printf("#<FILE STREAM>");
         break;
     case O_CHAR:
-        printf("#\\%c", o->character);
+        name = char_to_name(o->character);
+        if(name) {
+            printf("#\\%s", name);
+        }
+        else {
+            printf("#\\%c", o->character);
+        }
         break;
     }
 }

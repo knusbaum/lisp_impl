@@ -75,21 +75,25 @@
           (if (not ,(car end-form)) (go ,loop-body)))
        ,(car (cdr end-form)))))
 
+(defmacro for (init cond step &rest body)
+  (let ((conditional (gensym))
+        (loop-body (gensym)))
+    `(let (,init)
+       (tagbody
+          (go ,conditional)
+          ,loop-body
+          ,@body
+          ,step
+          ,conditional
+          (if ,cond
+              (go ,loop-body))))))
+
 (fn load-file (fname)
     (let ((f (open fname)))
-      (do ((form (read f) (read f)))
-          ((if form
-               (eval form)
-               t)
-           nil))
-      (close f)))
-
-(fn load-file2 (fname)
-  (let ((f (open fname)))
-    (catch ('end-of-file e)
-      (do ((form (eval (read f)) (eval (read f))))
-          (nil :done))
-      (close f))))
+      (catch ('end-of-file e)
+        (do ((form (eval (read f)) (eval (read f))))
+            (nil :done))
+        (close f))))
 
 (fn read-file (fname)
     (let ((f (open fname)))
@@ -103,9 +107,21 @@
         (close f))))
 
 (fn read-file-by-char (fname)
-    (let ((f (open fname)))
-      (do ((c (read-char f) (read-char f)))
-          ((progn
-             (print c)
-             nil)
-           :done))))
+    (let ((f (open fname))
+          (chrs nil)
+          (chtrack nil))
+      (catch ('end-of-file e)
+        (do ((c (read-char f) (read-char f)))
+            ((progn
+               (if chrs
+                   (progn
+                     (setcdr chtrack (cons c nil))
+                     (set chtrack (cdr chtrack)))
+                   (progn
+                     (set chrs (cons c nil))
+                     (set chtrack chrs)))
+               nil)
+             :done))
+        (progn
+          (close f)
+          chrs))))
