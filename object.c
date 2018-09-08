@@ -408,6 +408,19 @@ static char *char_to_name(char c) {
     }
 }
 
+char name_to_char(const char *s) {
+    if(strcmp(s, "Newline") == 0) {
+        return '\n';
+    }
+    if(strcmp(s, "Space") == 0) {
+        return ' ';
+    }
+    if(strcmp(s, "Tab") == 0) {
+        return '\t';
+    }
+    return 0;
+}
+
 static void print_cons(cons *c);
 
 static void print_cdr(object *o) {

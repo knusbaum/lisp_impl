@@ -1,3 +1,6 @@
+(defmacro defvar (name val)
+  `(bind ',name ,val))
+
 (defmacro progn (&rest body)
   `(let nil
      ,@body))

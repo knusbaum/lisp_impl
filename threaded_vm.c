@@ -111,6 +111,7 @@ void vm_str_len(context_stack *cs, long variance);
 void vm_str_setnth(context_stack *cs, long variance);
 void vm_str_append(context_stack *cs, long variance);
 void vm_str_copy(context_stack *cs, long variance);
+void vm_bind(context_stack *cs, long variance);
 
 parser *stdin_parser;
 
@@ -158,6 +159,7 @@ void vm_init(context_stack *cs) {
     bind_native_fn(cs, interns("STR-SETNTH"), vm_str_setnth);
     bind_native_fn(cs, interns("STR-APPEND"), vm_str_append);
     bind_native_fn(cs, interns("STR-COPY"), vm_str_copy);
+    bind_native_fn(cs, interns("BIND"), vm_bind);
 
     addrs = get_vm_addrs();
     special_syms = map_create(sym_equal);
@@ -165,6 +167,7 @@ void vm_init(context_stack *cs) {
     map_put(special_syms, obj_nil(), (void *)1);
 
     stdin_parser = new_parser_file(stdin);
+    bind_var(cs, interns("*STANDARD-INPUT*"), new_object_fstream_unsafe(cs, stdin));
 }
 
 static inline void __push(object *o) {
@@ -803,6 +806,19 @@ void vm_str_copy(context_stack *cs, long variance) {
     string *lstr = oval_string(cs, str);
     object *newstr = new_object(O_STR, new_string_copy(string_ptr(lstr)));
     __push(newstr);
+}
+
+void vm_bind(context_stack *cs, long variance) {
+    if(variance != 2) {
+        printf("Expected exactly 2 arguments, but got %ld.\n", variance);
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
+    }
+
+    object *value = pop();
+    object *name = pop();
+    bind_var(cs, name, value);
+    __push(value);
 }
 
 void vm_eval(context_stack *cs, long variance) {

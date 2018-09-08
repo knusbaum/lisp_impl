@@ -167,6 +167,10 @@ object *next_form(parser *p, context_stack *cs) {
         vm_error_impl(cs, interns("END-OF-FILE"));
         get_next_tok(p);
         break;
+    case LEX_ERR:
+        clear_tok(p);
+        vm_error_impl(cs, interns("LEX_ERR"));
+        break;
     default:
         //printf("[parser.c][next_form] Got another token: ");
         //print_token(currtok(p));

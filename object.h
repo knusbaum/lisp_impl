@@ -85,4 +85,7 @@ void set_gc_flag(object *o, char f);
 
 void destroy_object(object *o);
 
+// Maybe should move this to lexer, but char_to_name is in object.c
+char name_to_char(const char *s);
+
 #endif

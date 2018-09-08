@@ -17,7 +17,8 @@ enum toktype {
     AT_SYMBOL,
     DOT,
     CHARACTER,
-    END
+    END,
+    LEX_ERR
 };
 
 struct token {

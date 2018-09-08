@@ -4,6 +4,7 @@
 #include <string.h>
 #include "lexer.h"
 #include "lstring.h"
+#include "object.h"
 
 struct lexer {
     FILE *f;
@@ -122,8 +123,19 @@ string *parse_string(struct lexer *lex) {
 
 char parse_character(struct lexer *lex) {
     match(lex, '\\');
-    char c = look(lex);
-    get_char(lex);
+    string *s = new_string();
+    while(is_sym_char(look(lex))) {
+        //printf("'%c'\n", look(lex));
+        string_append(s, look(lex));
+        get_char(lex);
+    }
+    if(string_len(s) > 1) {
+        char c = name_to_char(string_ptr(s));
+        string_free(s);
+        return c;
+    }
+    char c = string_ptr(s)[0];
+    string_free(s);
     return c;
 }
 
@@ -202,6 +214,9 @@ void next_token(struct lexer *lex, struct token *t) {
         t->type = CHARACTER;
         get_char(lex); // We can throw away the '#'
         t->character = parse_character(lex);
+        if(!t->character) {
+            t->type = LEX_ERR;
+        }
         break;
     case EOF:
         t->type = END;
@@ -244,6 +259,7 @@ void free_token(struct token *t) {
     case NUM:
     case NONE:
     case CHARACTER:
+    case LEX_ERR:
     case DOT:
         break;
     }
@@ -290,6 +306,9 @@ const char *toktype_str(enum toktype t) {
     case END:
         return "END";
         break;
+    case LEX_ERR:
+        return "LEX_ERR";
+        break;
     default:
         return "UNKNOWN";
     }
@@ -307,6 +326,7 @@ void print_token(struct token *t) {
     case DOT:
     case CHARACTER:
     case END:
+    case LEX_ERR:
         printf("%s", toktype_str(t->type));
         break;
     case SYM:
