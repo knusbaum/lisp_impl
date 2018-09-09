@@ -117,7 +117,7 @@ object *next_form(parser *p, context_stack *cs) {
         return o;
         break;
     case NUM:
-        o = new_object_long(currtok(p)->num);
+        o = new_object_bnum(currtok(p)->bnum);
         clear_tok(p);
         return o;
         break;

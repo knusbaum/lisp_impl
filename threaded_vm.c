@@ -212,11 +212,21 @@ void dump_stack() {
 
 static inline void vm_mult(context_stack *cs, long variance) {
     (void)cs;
-    long val = 1;
+    //long val = 1;
+    mpz_t bnum;
+    mpz_init(bnum);
+    mpz_set_ui(bnum, 1);
+
+    mpz_t bnumi;
+    mpz_init(bnumi);
     for(int i = 0; i < variance; i++) {
-        val *= oval_long(cs, __pop());
+        //val *= oval_long(cs, __pop());
+        oval_bnum(cs, __pop(), bnumi);
+        mpz_mul(bnum, bnum, bnumi);
     }
-    __push(new_object_long(val));
+    __push(new_object_bnum(bnum));
+    mpz_clear (bnum);
+    mpz_clear (bnumi);
 }
 
 static inline void vm_div(context_stack *cs, long variance) {
@@ -226,15 +236,30 @@ static inline void vm_div(context_stack *cs, long variance) {
         vm_error_impl(cs, interns("SIG-ERROR"));
     }
     (void)cs;
-    long val = 1;
-    printf("Signalling error: ");
-    print_object(__top());
-    printf("\n");
+//    long val = 1;
+    mpz_t bnum;
+    mpz_init(bnum);
+    mpz_set_ui(bnum, 1);
+
+    mpz_t bnumi;
+    mpz_init(bnumi);
     for(int i = 0; i < variance - 1; i++) {
-        val *= oval_long(cs, __pop());
+        //val *= oval_long(cs, __pop());
+        oval_bnum(cs, __pop(), bnumi);
+        mpz_mul(bnum, bnum, bnumi);
     }
-    val = oval_long(cs, __pop()) / val;
-    __push(new_object_long(val));
+    mpz_t bnum_numer;
+    mpz_init(bnum_numer);
+    oval_bnum(cs, __pop(), bnum_numer);
+
+    mpz_cdiv_q(bnum_numer, bnum_numer, bnum);
+    __push(new_object_bnum(bnum_numer));
+    mpz_clear(bnum);
+    mpz_clear(bnumi);
+    mpz_clear(bnum_numer);
+       
+    //val = oval_long(cs, __pop()) / val;
+    //__push(new_object_long(val));
 }
 
 void vm_num_eq(context_stack *cs, long variance) {
@@ -244,7 +269,17 @@ void vm_num_eq(context_stack *cs, long variance) {
         //abort();
         vm_error_impl(cs, interns("SIG-ERROR"));
     }
-    if(oval_long(cs, __pop()) == oval_long(cs, __pop())) {
+
+    mpz_t bnum1, bnum2;
+    mpz_init(bnum1);
+    mpz_init(bnum2);
+
+    oval_bnum(cs, __pop(), bnum1);
+    oval_bnum(cs, __pop(), bnum2);
+
+    int res = mpz_cmp(bnum1, bnum2);
+    
+    if(res == 0) {
         __push(obj_t());
     }
     else {
@@ -259,8 +294,16 @@ void vm_num_gt(context_stack *cs, long variance) {
         //abort();
         interns("SIG-ERROR");
     }
-    // args are reversed.
-    if(oval_long(cs, __pop()) < oval_long(cs, __pop())) {
+    mpz_t bnum1, bnum2;
+    mpz_init(bnum1);
+    mpz_init(bnum2);
+
+    oval_bnum(cs, __pop(), bnum2);
+    oval_bnum(cs, __pop(), bnum1);
+
+    int res = mpz_cmp(bnum1, bnum2);
+    
+    if(res > 0) {
         __push(obj_t());
     }
     else {
@@ -275,8 +318,16 @@ void vm_num_lt(context_stack *cs, long variance) {
         //abort();
         vm_error_impl(cs, interns("SIG-ERROR"));
     }
-    // args are reversed.
-    if(oval_long(cs, __pop()) > oval_long(cs, __pop())) {
+    mpz_t bnum1, bnum2;
+    mpz_init(bnum1);
+    mpz_init(bnum2);
+
+    oval_bnum(cs, __pop(), bnum2);
+    oval_bnum(cs, __pop(), bnum1);
+
+    int res = mpz_cmp(bnum1, bnum2);
+    
+    if(res < 0) {
         __push(obj_t());
     }
     else {
@@ -408,7 +459,10 @@ void vm_length(context_stack *cs, long variance) {
     for(object *curr = __pop(); curr != obj_nil(); curr = ocdr(cs, curr)) {
         len++;
     }
-    __push(new_object_long(len));
+    mpz_t num;
+    mpz_init_set_si(num, len);
+    __push(new_object_bnum(num));
+    mpz_clear(num);
 }
 
 void vm_eq(context_stack *cs, long variance) {
@@ -744,7 +798,13 @@ void vm_str_nth(context_stack *cs, long variance) {
     object *elem = pop();
     object *str = pop();
     string *lstr = oval_string(cs, str);
-    size_t celem = oval_long(cs, elem);
+
+    mpz_t bnum;
+    mpz_init(bnum);
+    oval_bnum(cs, elem, bnum);
+    size_t celem =  mpz_get_ui(bnum);
+    mpz_clear(bnum);
+    //size_t celem = oval_long(cs, elem);
     if(celem >= string_len(lstr)) {
         vm_error_impl(cs, interns("ARRAY-OUT-OF-BOUNDS"));
     }
@@ -761,7 +821,11 @@ void vm_str_len(context_stack *cs, long variance) {
     object *str = pop();
     string *lstr = oval_string(cs, str);
     long len = string_len(lstr) - 1;
-    __push(new_object_long(len));
+    mpz_t bnum;
+    mpz_init_set_ui(bnum, len);
+    
+    __push(new_object_bnum(bnum));
+    mpz_clear(bnum);
 }
 
 void vm_str_setnth(context_stack *cs, long variance) {
@@ -774,12 +838,17 @@ void vm_str_setnth(context_stack *cs, long variance) {
     object *elem = pop();
     object *str = pop();
     string *lstr = oval_string(cs, str);
-    size_t celem = oval_long(cs, elem);
+
+    mpz_t bnum;
+    mpz_init(bnum);
+    oval_bnum(cs, elem, bnum);
+    size_t celem =  mpz_get_ui(bnum);
+    mpz_clear(bnum);
     if(celem >= string_len(lstr)) {
         vm_error_impl(cs, interns("ARRAY-OUT-OF-BOUNDS"));
     }
 
-    string_set(lstr, oval_long(cs, elem), oval_char(cs, c));
+    string_set(lstr, celem, oval_char(cs, c));
     __push(str);
 }
 
@@ -953,7 +1022,8 @@ static inline void *___vm(context_stack *cs, compiled_chunk *cc, int _get_vm_add
 
     size_t target;
     object *ret, *sym, *val;
-    long mathvar;
+//    long mathvar;
+    mpz_t bnum1, bnum2;
     long truthiness;
     int i;
     jmp_buf *jmp;
@@ -1066,21 +1136,36 @@ push_from_stack:
     NEXTI;
 add:
     //printf("%ld@%p ADD (%ld)\n", bs - cc->bs, cc, bs->variance);
-    mathvar = 0;
+    //mathvar = 0;
+    mpz_init(bnum1);
+    mpz_init(bnum2);
     for(i = 0; i < bs->variance; i++) {
-        mathvar += oval_long(cs, __top());
+        oval_bnum(cs, __top(), bnum2);
+        //mathvar += oval_long(cs, __top());
+        mpz_add(bnum1, bnum1, bnum2);
         __pop();
     }
-    __push(new_object_long(mathvar));
+    __push(new_object_bnum(bnum1));
+    mpz_clear(bnum1);
+    mpz_clear(bnum2);
     NEXTI;
 subtract:
     //printf("%ld@%p SUBTRACT (%ld)\n", bs - cc->bs, cc, bs->variance);
-    mathvar = 0;
+    //mathvar = 0;
+    mpz_init(bnum1);
+    mpz_init(bnum2);
     for(i = 0; i < bs->variance - 1; i++) {
-        mathvar += oval_long(cs, __pop());
+        oval_bnum(cs, __top(), bnum2);
+        //mathvar += oval_long(cs, __pop());
+        mpz_add(bnum1, bnum1, bnum2);
+        __pop();
     }
-    mathvar = oval_long(cs, __pop()) - mathvar;
-    __push(new_object_long(mathvar));
+    oval_bnum(cs, __pop(), bnum2);
+    //mathvar = oval_long(cs, __pop()) - mathvar;
+    mpz_sub(bnum1, bnum2, bnum1);
+    __push(new_object_bnum(bnum1));
+    mpz_clear(bnum1);
+    mpz_clear(bnum2);
     NEXTI;
 multiply:
     //printf("%ld@%p MULTIPLY\n", bs - cc->bs, cc);
@@ -1093,9 +1178,13 @@ divide:
 num_eq:
     //printf("%ld@%p NUM_EQ\n", bs - cc->bs, cc);
     truthiness = 1;
-    mathvar = oval_long(cs, __pop());
+    //mathvar = oval_long(cs, __pop());
+    mpz_init(bnum1);
+    mpz_init(bnum2);
+    oval_bnum(cs, __pop(), bnum1);
     for(long i = 0; i < bs->variance - 1; i++) {
-        truthiness = truthiness && (mathvar == oval_long(cs, __pop()));
+        oval_bnum(cs, __pop(), bnum2);
+        truthiness = truthiness && (mpz_cmp(bnum1, bnum2) == 0);
     }
     if(truthiness) {
         __push(obj_t());
@@ -1103,6 +1192,8 @@ num_eq:
     else {
         __push(obj_nil());
     }
+    mpz_clear(bnum1);
+    mpz_clear(bnum2);
     NEXTI;
 catch:
     //printf("%ld@%p CATCH ", bs - cc->bs, cc);

@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <gmp.h>
 #include "object.h"
 #include "compiler.h"
 #include "map.h"
@@ -51,7 +52,8 @@ struct object {
     union {
         string *str;
         cons *c;
-        long num;
+        long offt;
+        mpz_t bnum;
         void (*native)(void *, long);
         compiled_chunk *cc;
         struct file_stream *fstream;
@@ -122,12 +124,13 @@ object *new_object_cons(object *car, object *cdr) {
     return new_object(O_CONS, c);
 }
 
-object *new_object_long(long l) {
+object *new_object_bnum(mpz_t bnum) {
     object *ob = malloc(sizeof (object));
     ob->gcflag = GC_FLAG_BLACK;
     add_object_to_gclist(ob);
     ob->type = O_NUM;
-    ob->num = l;
+    mpz_init(ob->bnum);
+    mpz_set(ob->bnum, bnum);
     ob->name = NULL;
     return ob;
 }
@@ -147,7 +150,7 @@ object *new_object_stackoffset(long l) {
     ob->gcflag = GC_FLAG_BLACK;
     add_object_to_gclist(ob);
     ob->type = O_STACKOFFSET;
-    ob->num = l;
+    ob->offt = l;
     ob->name = NULL;
     return ob;
 }
@@ -262,7 +265,7 @@ string *oval_string(context_stack *cs, object *o) {
     return o->str;
 }
 
-long oval_long(context_stack *cs, object *o) {
+void oval_bnum(context_stack *cs, object *o, mpz_t bnum) {
     if(o->type != O_NUM) {
         printf("Expected number, but have: ");
         print_object(o);
@@ -270,7 +273,8 @@ long oval_long(context_stack *cs, object *o) {
         //abort();
         vm_error_impl(cs, interns("TYPE-ERROR"));
     }
-    return o->num;
+    mpz_set(bnum, o->bnum);
+    //return o->num;
 }
 
 char oval_char(context_stack *cs, object *o) {
@@ -292,7 +296,7 @@ long oval_stackoffset(context_stack *cs, object *o) {
         //abort();
         vm_error_impl(cs, interns("TYPE-ERROR"));
     }
-    return o->num;
+    return o->offt;
 }
 
 void (*oval_native(context_stack *cs, object *o))(void *, long) {
@@ -434,7 +438,8 @@ static void print_cdr(object *o) {
         printf(" . \"%s\"", string_ptr(o->str));
         break;
     case O_NUM:
-        printf(" . %ld", o->num);
+        //printf(" . %ld", o->num);
+        gmp_printf(" . %Zd", o->bnum);
         break;
     case O_CONS:
         printf(" ");
@@ -456,7 +461,7 @@ static void print_cdr(object *o) {
         printf(" . #<COMPILED MACRO @ %p>", o);
         break;
     case O_STACKOFFSET:
-        printf(" . #<STACK_OFFSET: %ld>", o->num);
+        printf(" . #<STACK_OFFSET: %ld>", o->offt);
         break;
     case O_FSTREAM:
         printf(" . #<FILE STREAM>");
@@ -505,7 +510,8 @@ void print_object(object *o) {
         printf("\"%s\"", string_ptr(o->str));
         break;
     case O_NUM:
-        printf("%ld", o->num);
+        //printf("%ld", o->num);
+        gmp_printf("%Zd", o->bnum);
         break;
     case O_CONS:
         print_list(o->c);
@@ -526,7 +532,7 @@ void print_object(object *o) {
         printf("#<COMPILED MACRO @ %p>", o);
         break;
     case O_STACKOFFSET:
-        printf("#<STACK_OFFSET: %ld>", o->num);
+        printf("#<STACK_OFFSET: %ld>", o->offt);
         break;
     case O_FSTREAM:
         printf("#<FILE STREAM>");
@@ -653,6 +659,8 @@ void destroy_object(object *o) {
         string_free(o->str);
         break;
     case O_NUM:
+        mpz_clear(o->bnum);
+        break;
     case O_FN_NATIVE:
     case O_STACKOFFSET:
     case O_CHAR:

@@ -152,15 +152,16 @@ string *parse_symbol(struct lexer *lex) {
     return s;
 }
 
-long parse_long(struct lexer *lex) {
+void parse_bnum(struct lexer *lex, mpz_t bnum) {
     string *s = new_string();
-    while(isdigit(look(lex))) {
+    while(look(lex) == '-' || isdigit(look(lex))) {
         string_append(s, look(lex));
         get_char(lex);
     }
-    long ret = strtol(string_ptr(s), NULL, 0);
+    mpz_init_set_str(bnum, string_ptr(s), 10);
+    //long ret = strtol(string_ptr(s), NULL, 0);
     string_free(s);
-    return ret;
+    //return ret;
 }
 
 void next_token(struct lexer *lex, struct token *t) {
@@ -223,9 +224,10 @@ void next_token(struct lexer *lex, struct token *t) {
         t->data = NULL;
         break;
     default:
-        if(isdigit(look(lex))) {
+        if(look(lex) == '-' || isdigit(look(lex))) {
             t->type = NUM;
-            t->num = parse_long(lex);
+            //t->num = parse_long(lex);
+            parse_bnum(lex, t->bnum);
 //            get_char();
         }
         //if(isalpha(look())) {
@@ -256,11 +258,13 @@ void free_token(struct token *t) {
     case COMMA:
     case AT_SYMBOL:
     case END:
-    case NUM:
     case NONE:
     case CHARACTER:
     case LEX_ERR:
     case DOT:
+        break;
+    case NUM:
+        mpz_clear(t->bnum);
         break;
     }
 }
@@ -336,7 +340,8 @@ void print_token(struct token *t) {
         printf("%s, \"%s\"", toktype_str(t->type), string_ptr(t->data));
         break;
     case NUM:
-        printf("%s, %ld", toktype_str(t->type), t->num);
+        gmp_printf("%s, %Zd", toktype_str(t->type), t->bnum);
+        //printf("%s, %ld", toktype_str(t->type), t->num);
         break;
     default:
         printf("UNKNOWN: %d", t->type);

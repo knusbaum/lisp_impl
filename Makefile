@@ -1,6 +1,6 @@
 CFLAGS=-ggdb -O0 -Wall -Wextra -Werror
 EXECUTABLE=lisp
-LDFLAGS=-lpthread
+LDFLAGS=-lpthread -lgmp
 
 OBJECTS=main.o \
 		lexer.o \

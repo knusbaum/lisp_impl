@@ -2,6 +2,7 @@
 #define LEXER_H
 
 #include <stdio.h>
+#include <gmp.h>
 
 enum toktype {
     NONE = 0,
@@ -25,7 +26,7 @@ struct token {
     enum toktype type;
     union {
         void *data;
-        long num;
+        mpz_t bnum;
         char character;
     };
 };

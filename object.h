@@ -3,6 +3,7 @@
 
 #include <stdarg.h>
 #include <stdio.h>
+#include <gmp.h>
 #include "lstring.h"
 #include "map.h"
 
@@ -34,7 +35,7 @@ void object_set_name(object *o, char *name);
 /** Object Operations **/
 object *new_object(enum obj_type t, void *o);
 object *new_object_cons(object *car, object *cdr);
-object *new_object_long(long l);
+object *new_object_bnum(mpz_t bnum);
 object *new_object_char(char c);
 object *new_object_stackoffset(long l);
 object *new_object_fn(object *args, object *body);
@@ -48,7 +49,7 @@ const char *otype_str(enum obj_type);
 string *oval_symbol(context_stack *cs, object *o);
 string *oval_keyword(context_stack *cs, object *o);
 string *oval_string(context_stack *cs, object *o);
-long oval_long(context_stack *cs, object *o);
+void oval_bnum(context_stack *cs, object *o, mpz_t bnum);
 char oval_char(context_stack *cs, object *o);
 long oval_stackoffset(context_stack *cs, object *o);
 void (*oval_native(context_stack *cs, object *o))(void *, long);
