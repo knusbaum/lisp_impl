@@ -91,6 +91,30 @@
           (if ,cond
               (go ,loop-body))))))
 
+(defmacro mapcar (lpair &rest body)
+  (let ((var (car lpair))
+        (list (gensym))
+        (ret (gensym))
+        (rettrack (gensym))
+        (next (gensym)))
+    `(let ((,list ,(car (cdr lpair)))
+           (,ret nil)
+           (,rettrack nil))
+       (for (,var (car ,list)) ,var (progn
+                                      (set ,list (cdr ,list))
+                                      (set ,var (car ,list)))
+            (let ((,next
+                   (progn
+                     ,@body)))
+              (if ,ret
+                  (progn
+                    (setcdr ,rettrack (cons ,next nil))
+                    (set ,rettrack (cdr ,rettrack)))
+                  (progn
+                    (set ,ret (cons ,next nil))
+                    (set ,rettrack ,ret)))))
+       ,ret)))
+
 (fn load-file (fname)
     (let ((f (open fname)))
       (catch ('end-of-file e)
