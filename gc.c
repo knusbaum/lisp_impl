@@ -220,15 +220,19 @@ void gc(context_stack *cs) {
         grey = dequeue_grey_queue();
     }
 
+//    pthread_mutex_lock(get_gc_mut());
     // Actually free some stuff
     size_t new_olist_size = o_size;
     object **new_olist = malloc(new_olist_size * sizeof (object *));
     size_t new_olist_off = 0;
     for(size_t i = 0; i < o_off; i++) {
         if(gc_flag(olist[i]) == GC_FLAG_WHITE) {
-//            printf("Freeing object: ");
-//            print_object(olist[i]);
-//            printf("@%x\n", olist[i]);
+            // Optimization to avoid allocating and freeing tons of O_NUM objects
+            if(otype(olist[i]) == O_NUM && oval_long(cs, olist[i]) < O_NUM_CACHE_SIZE)
+                continue;
+            //printf("Freeing object: ");
+            //print_object(olist[i]);
+            //printf("@%p\n", olist[i]);
             destroy_object(olist[i]);
         }
         else {

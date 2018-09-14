@@ -911,7 +911,7 @@ void vm_print(context_stack *cs, long variance) {
     };
 
 static inline void *___vm(context_stack *cs, compiled_chunk *cc, int _get_vm_addrs) {
-    if(cs && context_level(cs) > 20000)
+    if(cs && context_level(cs) > 10000)
         vm_error_impl(cs, interns("STACK-OVERFLOW"));
 
     if(_get_vm_addrs) {

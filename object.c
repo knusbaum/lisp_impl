@@ -122,13 +122,20 @@ object *new_object_cons(object *car, object *cdr) {
     return new_object(O_CONS, c);
 }
 
+// Optimization to avoid allocating and freeing tons of O_NUM objects
+object *long_cache[O_NUM_CACHE_SIZE];
+
 object *new_object_long(long l) {
+    if(l < O_NUM_CACHE_SIZE && long_cache[l])
+        return long_cache[l];
     object *ob = malloc(sizeof (object));
     ob->gcflag = GC_FLAG_BLACK;
     add_object_to_gclist(ob);
     ob->type = O_NUM;
     ob->num = l;
     ob->name = NULL;
+    if(l < O_NUM_CACHE_SIZE)
+        long_cache[l] = ob;
     return ob;
 }
 

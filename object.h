@@ -6,6 +6,9 @@
 #include "lstring.h"
 #include "map.h"
 
+// Optimization to avoid allocating and freeing tons of O_NUM objects
+#define O_NUM_CACHE_SIZE 20000
+
 typedef struct object object;
 
 //** NEED REFACTORING **/
