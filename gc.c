@@ -53,7 +53,7 @@ void *run_gc_loop(void *cs) {
         //pthread_mutex_lock(get_gc_mut());
         gc((context_stack *)cs);
         //pthread_mutex_unlock(get_gc_mut());
-        sleep(1);
+        sleep(5);
     }
     return NULL;
 }

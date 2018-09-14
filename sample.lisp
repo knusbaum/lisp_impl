@@ -1,7 +1,7 @@
 ;; Sample naive fibonacci sequence implementation.
-(fn fib (x)
-    (cond ((< x 3) 1)
-          (t (+ (fib (- x 1))
-                (fib (- x 2))))))
+(fn fib (n)
+    (if (< n 3)
+        1
+        (+ (fib (- n 1)) (fib (- n 2)))))
 
-(fib 10)
+(print (fib 43))

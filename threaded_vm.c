@@ -919,6 +919,8 @@ void vm_print(context_stack *cs, long variance) {
         goto *bs->instr;                        \
     };
 
+int gcmod;
+
 static inline void *___vm(context_stack *cs, compiled_chunk *cc, int _get_vm_addrs) {
     if(cs && context_level(cs) > 10000)
         vm_error_impl(cs, interns("STACK-OVERFLOW"));
@@ -1167,8 +1169,10 @@ restore_stackoff:
 exit:
     //printf("%ld@%p EXIT\n", bs - cc->bs, cc);
     //dump_stack();
-    pthread_mutex_unlock(&gc_mut);
-    pthread_mutex_lock(&gc_mut);
+    if(gcmod++ % 20000 == 0) {
+        pthread_mutex_unlock(&gc_mut);
+        pthread_mutex_lock(&gc_mut);
+    }
     return NULL;
 }
 
