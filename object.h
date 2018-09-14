@@ -83,8 +83,10 @@ object *intern(string *symname);
 map_t *get_interned();
 
 /** Important Objects **/
-object *obj_nil();
-object *obj_t();
+//object *obj_nil();
+//object *obj_t();
+object *obj_nil;
+object *obj_t;
 
 char gc_flag(object *o);
 void set_gc_flag(object *o, char f);

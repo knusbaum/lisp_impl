@@ -163,8 +163,8 @@ void vm_init(context_stack *cs) {
 
     addrs = get_vm_addrs();
     special_syms = map_create(sym_equal);
-    map_put(special_syms, obj_t(), (void *)1);
-    map_put(special_syms, obj_nil(), (void *)1);
+    map_put(special_syms, obj_t, (void *)1);
+    map_put(special_syms, obj_nil, (void *)1);
 
     stdin_parser = new_parser_file(stdin);
     bind_var(cs, interns("*STANDARD-INPUT*"), new_object_fstream_unsafe(cs, stdin));
@@ -185,14 +185,14 @@ static inline void __push(object *o) {
 }
 
 static inline object *__pop() {
-    if(s_off == 0) return obj_nil();
+    if(s_off == 0) return obj_nil;
     //printf("Popping: \n");
     //dump_stack();
     return stack[--s_off];
 }
 
 static inline object *__top() {
-    if(s_off == 0) return obj_nil();
+    if(s_off == 0) return obj_nil;
     return stack[s_off - 1];
 }
 
@@ -247,10 +247,10 @@ void vm_num_eq(context_stack *cs, long variance) {
         vm_error_impl(cs, interns("SIG-ERROR"));
     }
     if(oval_long(cs, __pop()) == oval_long(cs, __pop())) {
-        __push(obj_t());
+        __push(obj_t);
     }
     else {
-        __push(obj_nil());
+        __push(obj_nil);
     }
 }
 
@@ -263,10 +263,10 @@ void vm_num_gt(context_stack *cs, long variance) {
     }
     // args are reversed.
     if(oval_long(cs, __pop()) < oval_long(cs, __pop())) {
-        __push(obj_t());
+        __push(obj_t);
     }
     else {
-        __push(obj_nil());
+        __push(obj_nil);
     }
 }
 
@@ -279,16 +279,16 @@ void vm_num_lt(context_stack *cs, long variance) {
     }
     // args are reversed.
     if(oval_long(cs, __pop()) > oval_long(cs, __pop())) {
-        __push(obj_t());
+        __push(obj_t);
     }
     else {
-        __push(obj_nil());
+        __push(obj_nil);
     }
 }
 
 void vm_list(context_stack *cs, long variance) {
     (void)cs;
-    object *cons = obj_nil();
+    object *cons = obj_nil;
     for(int i = 0; i < variance; i++) {
         cons = new_object_cons(__pop(), cons);
     }
@@ -303,14 +303,14 @@ void vm_append(context_stack *cs, long variance) {
     }
 
     (void)cs;
-    object *cons = new_object_cons(__pop(), obj_nil());
+    object *cons = new_object_cons(__pop(), obj_nil);
     object *target = __pop();
-    if(target == obj_nil()) {
+    if(target == obj_nil) {
         __push(cons);
         return;
     }
     object *curr = target;
-    while(ocdr(cs, curr) != obj_nil()) {
+    while(ocdr(cs, curr) != obj_nil) {
         curr=ocdr(cs, curr);
     }
     osetcdr(cs, curr, cons);
@@ -327,12 +327,12 @@ void vm_splice(context_stack *cs, long variance) {
     (void)cs;
     object *to_splice = __pop();
     object *target = __pop();
-    if(target == obj_nil()) {
+    if(target == obj_nil) {
         __push(to_splice);
         return;
     }
     object *curr = target;
-    while(ocdr(cs, curr) != obj_nil()) {
+    while(ocdr(cs, curr) != obj_nil) {
         curr=ocdr(cs, curr);
     }
     osetcdr(cs, curr, to_splice);
@@ -411,7 +411,7 @@ void vm_length(context_stack *cs, long variance) {
     }
 
     long len = 0;
-    for(object *curr = __pop(); curr != obj_nil(); curr = ocdr(cs, curr)) {
+    for(object *curr = __pop(); curr != obj_nil; curr = ocdr(cs, curr)) {
         len++;
     }
     __push(new_object_long(len));
@@ -425,10 +425,10 @@ void vm_eq(context_stack *cs, long variance) {
         vm_error_impl(cs, interns("SIG-ERROR"));
     }
     if(__pop() == __pop()) {
-        __push(obj_t());
+        __push(obj_t);
     }
     else {
-        __push(obj_nil());
+        __push(obj_nil);
     }
 }
 
@@ -447,7 +447,7 @@ void vm_compile_fn(context_stack *cs, long variance) {
     //push(fn);
 
     // Unbind the fn if anything goes wrong.
-    jmp_buf *trap = vm_push_trap(cs, obj_nil());
+    jmp_buf *trap = vm_push_trap(cs, obj_nil);
     int ret = setjmp(*trap);
     if(ret) {
         printf("ERROR IN VM_COMPILE_FN!\n");
@@ -474,7 +474,7 @@ void vm_compile_lambda(context_stack *cs, long variance) {
     //bind_fn(cs, fname, fn);
 
     // Unbind the fn if anything goes wrong.
-    jmp_buf *trap = vm_push_trap(cs, obj_nil());
+    jmp_buf *trap = vm_push_trap(cs, obj_nil);
     int ret = setjmp(*trap);
     if(ret) {
         printf("ERROR IN VM_COMPILE_LAMBDA!\n");
@@ -506,7 +506,7 @@ void vm_compile_macro(context_stack *cs, long variance) {
 
 void call(context_stack *cs, long variance) {
     object *fn = __pop();
-    if(fn == obj_nil() || fn == NULL) {
+    if(fn == obj_nil || fn == NULL) {
         printf("Cannot call function: ");
         print_object(fn);
         printf("\n");
@@ -577,7 +577,7 @@ void vm_macroexpand_rec(context_stack *cs, long rec) {
         if(func && otype(func) == O_MACRO_COMPILED) {
             // Don't eval the arguments.
             long num_args = 0;
-            for(object *margs = ocdr(cs, o); margs != obj_nil(); margs = ocdr(cs, margs)) {
+            for(object *margs = ocdr(cs, o); margs != obj_nil; margs = ocdr(cs, margs)) {
                 push(ocar(cs, margs));
                 num_args++;
             }
@@ -610,7 +610,7 @@ void vm_macroexpand_rec(context_stack *cs, long rec) {
             vm_macroexpand_rec(cs, rec);
         }
         else {
-            for(object *margs = o; margs != obj_nil(); margs = ocdr(cs, margs)) {
+            for(object *margs = o; margs != obj_nil; margs = ocdr(cs, margs)) {
                 push(ocar(cs, margs));
                 vm_macroexpand_rec(cs, rec);
                 set_gc_flag(__top(), GC_FLAG_BLACK);
@@ -681,7 +681,7 @@ void vm_error_impl(context_stack *cs, object *o) {
 //        print_object(trap_stack[i].catcher);
 //        printf("\n");
         if(sym == trap_stack[i].catcher
-           || trap_stack[i].catcher == obj_nil()) {
+           || trap_stack[i].catcher == obj_nil) {
             if(!cs) {
                 printf("Cannot handle error without context_stack.\n");
                 abort();
@@ -732,7 +732,7 @@ void vm_close(context_stack *cs, long variance) {
         vm_error_impl(cs, interns("SIG-ERROR"));
     }
     fstream_close(cs, __pop());
-    __push(obj_nil());
+    __push(obj_nil);
 }
 
 void vm_read_char(context_stack *cs, long variance) {
@@ -852,7 +852,7 @@ void vm_eval(context_stack *cs, long variance) {
     compiled_chunk *cc = new_compiled_chunk();
 
     // We need to catch any errors to deallocate the chunk and rethrow.
-    jmp_buf *trap = vm_push_trap(cs, obj_nil());
+    jmp_buf *trap = vm_push_trap(cs, obj_nil);
     int ret = setjmp(*trap);
     if(ret) {
         printf("ERROR IN VM_EVAL! THROWING SIG_ERROR\n");
@@ -892,7 +892,7 @@ void vm_read(context_stack *cs, long variance) {
         __push(o);
     }
     else {
-        __push(obj_nil());
+        __push(obj_nil);
     }
     if(variance == 1) {
         destroy_parser(p);
@@ -908,7 +908,7 @@ void vm_print(context_stack *cs, long variance) {
     }
     print_object(__pop());
     printf("\n");
-    __push(obj_nil());
+    __push(obj_nil);
 }
 
 //        dump_stack();
@@ -1039,7 +1039,7 @@ go_if_nil:
     //printf("%ld@%p (%p)GO_IF_NIL (%s)(%ld) ", bs - cc->bs, cc, bs, bs->str, target);
     bs->instr = &&go_if_nil_optim;
     bs->offset = target;
-    if(__pop() == obj_nil()) {
+    if(__pop() == obj_nil) {
         //printf("(jumping to %p)\n", (cc->bs + target)->instr);
         bs = cc->bs + target;
         goto *bs->instr;
@@ -1051,7 +1051,7 @@ go_if_not_nil:
     //printf("%ld@%p (%p)GO_IF_NOT_NIL (%s)(%ld) ", bs - cc->bs, cc, bs, bs->str, target);
     bs->instr = &&go_if_not_nil_optim;
     bs->offset = target;
-    if(__pop() != obj_nil()) {
+    if(__pop() != obj_nil) {
         //printf("(jumping to %p)\n", (cc->bs + target)->instr);
         bs = cc->bs + target;
         goto *bs->instr;
@@ -1064,7 +1064,7 @@ go_optim:
     goto *bs->instr;
 go_if_nil_optim:
     //printf("%ld@%p GO_IF_NIL_OPTIM (%ld) ", bs - cc->bs, cc, bs->offset);
-    if(__pop() == obj_nil()) {
+    if(__pop() == obj_nil) {
         //printf("(jumping)\n");
         bs = cc->bs + bs->offset;
         goto *bs->instr;
@@ -1073,7 +1073,7 @@ go_if_nil_optim:
     NEXTI;
 go_if_not_nil_optim:
     //printf("%ld@%p GO_IF_NOT_NIL_OPTIM (%ld) ", bs - cc->bs, cc, bs->offset);
-    if(__pop() != obj_nil()) {
+    if(__pop() != obj_nil) {
         //printf("(jumping)\n");
         bs = cc->bs + bs->offset;
         goto *bs->instr;
@@ -1119,10 +1119,10 @@ num_eq:
         truthiness = truthiness && (mathvar == oval_long(cs, __pop()));
     }
     if(truthiness) {
-        __push(obj_t());
+        __push(obj_t);
     }
     else {
-        __push(obj_nil());
+        __push(obj_nil);
     }
     NEXTI;
 catch:
@@ -1132,12 +1132,12 @@ catch:
     i = setjmp(*jmp);
     if(i) {
         //printf("PUSHING T\n");
-        push(obj_t());
+        push(obj_t);
         bs = bs_saved;
     }
     else {
         //printf("PUSHING NIL\n");
-        push(obj_nil());
+        push(obj_nil);
     }
     NEXTI;
 pop_catch:

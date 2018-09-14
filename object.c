@@ -194,7 +194,7 @@ object *new_object_list(size_t len, ...) {
     object *start = NULL;
     object *current = NULL;
     for(size_t i = 0; i < len; i++) {
-        object *next = new_object_cons(va_arg(ap, object *), obj_nil());
+        object *next = new_object_cons(va_arg(ap, object *), obj_nil);
         if(current) {
             setcdr(current->c, next);
             //osetcdr(current, next);
@@ -357,8 +357,8 @@ compiled_chunk *oval_macro_compiled(object *o) {
 }
 
 object *ocar(context_stack *cs, object *o) {
-    if(o == obj_nil()) {
-        return obj_nil();
+    if(o == obj_nil) {
+        return obj_nil;
     }
     if(o->type != O_CONS) {
         printf("Expected CONS cell, but have: ");
@@ -371,8 +371,8 @@ object *ocar(context_stack *cs, object *o) {
 }
 
 object *ocdr(context_stack *cs, object *o) {
-    if(o == obj_nil()) {
-        return obj_nil();
+    if(o == obj_nil) {
+        return obj_nil;
     }
     if(o->type != O_CONS) {
         printf("Expected CONS cell, but have: ");
@@ -506,7 +506,7 @@ static void sprint_cons(string *s, cons *c) {
     if(o) {
         sprint_object(s, o);
         o = cdr(c);
-        if(o != obj_nil()) {
+        if(o != obj_nil) {
             sprint_cdr(s, o);
         }
     }
@@ -687,21 +687,21 @@ object *intern(string *symname) {
     return s;
 }
 
-object *nil;
-object *obj_nil() {
-    if(!nil) {
-        nil = interns("NIL");
-    }
-    return nil;
-}
+object *obj_nil;
+//object *obj_nil() {
+//    if(!nil) {
+//        nil = interns("NIL");
+//    }
+//    return nil;
+//}
 
-object *otrue;
-object *obj_t() {
-    if(!otrue) {
-        otrue = interns("T");
-    }
-    return otrue;
-}
+object *obj_true;
+//object *obj_t() {
+//    if(!otrue) {
+//        otrue = interns("T");
+//    }
+//    return otrue;
+//}
 
 void destroy_object(object *o) {
     switch(o->type) {

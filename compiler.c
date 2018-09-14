@@ -332,7 +332,7 @@ void bs_restore_stackoff(compiled_chunk *cc) {
 
 // Reverse the bind order and handle variadic calls
 long fn_bind_params(compiled_chunk *cc, context_stack *cs, object *curr, long variance) {
-    if(curr == obj_nil()) return variance;
+    if(curr == obj_nil) return variance;
 
     object *rest = interns("&REST"); // Refactor. Shouldn't be calling interns here.
 
@@ -341,7 +341,7 @@ long fn_bind_params(compiled_chunk *cc, context_stack *cs, object *curr, long va
         // We have a variadic function. Mark it and handle further args.
         curr = ocdr(cs, curr);
         param = ocar(cs, curr);
-        if(curr == obj_nil() || param == obj_nil()) {
+        if(curr == obj_nil || param == obj_nil) {
             printf("Must supply a symbol to bind for &REST.\n");
             //abort();
             vm_error_impl(cs, interns("SIG-ERROR"));
@@ -349,7 +349,7 @@ long fn_bind_params(compiled_chunk *cc, context_stack *cs, object *curr, long va
         bs_bind(cc, cs, param);
         cc->stacklevel++;
         curr = ocdr(cs, curr);
-        if(curr != obj_nil()) {
+        if(curr != obj_nil) {
             printf("Expected end of list, but have: ");
             print_object(curr);
             printf("\n");
@@ -378,7 +378,7 @@ void fn_call(compiled_chunk *cc, context_stack *cs, object *fn) {
     cc->stacklevel--;
 
     int first_form = 1;
-    for(; fbody != obj_nil(); fbody = ocdr(cs, fbody)) {
+    for(; fbody != obj_nil; fbody = ocdr(cs, fbody)) {
         if(!first_form) {
             bs_pop(cc);
         }
@@ -392,7 +392,7 @@ void fn_call(compiled_chunk *cc, context_stack *cs, object *fn) {
 
 void compile_fn(compiled_chunk *fn_cc, context_stack *cs, object *fn) {
 
-    if(fn == obj_nil() || fn == NULL) {
+    if(fn == obj_nil || fn == NULL) {
         printf("Cannot call function: ");
         print_object(fn);
         printf("\n");
@@ -419,7 +419,7 @@ static void vm_let(compiled_chunk *cc, context_stack *cs, object *o) {
     object *letlist = ocar(cs, ocdr(cs, o));
     long pushlen = 0;
     //push_context(cs);
-    for(object *frm = letlist; frm != obj_nil(); frm = ocdr(cs, frm)) {
+    for(object *frm = letlist; frm != obj_nil; frm = ocdr(cs, frm)) {
         object *assign = ocar(cs, frm);
         object *sym = ocar(cs, assign);
 
@@ -428,7 +428,7 @@ static void vm_let(compiled_chunk *cc, context_stack *cs, object *o) {
             // Special case for strings (mutable)
             // This should probably be moved somewhere more generic,
             // instead of being a weird special-case.
-            object *copy_str = new_object_cons(interns("STR-COPY"), new_object_cons(target, obj_nil()));
+            object *copy_str = new_object_cons(interns("STR-COPY"), new_object_cons(target, obj_nil));
             compile_bytecode(cc, cs, copy_str);
         }
         else {
@@ -438,7 +438,7 @@ static void vm_let(compiled_chunk *cc, context_stack *cs, object *o) {
         pushlen++;
     }
     int first_time = 1;
-    for(object *body = ocdr(cs, ocdr(cs, o)); body != obj_nil(); body = ocdr(cs, body)) {
+    for(object *body = ocdr(cs, ocdr(cs, o)); body != obj_nil; body = ocdr(cs, body)) {
         if(!first_time) {
             // Pop the previous result. It will be unused. (only the last form is "returned.")
             bs_pop(cc);
@@ -482,7 +482,7 @@ static void vm_fn(compiled_chunk *cc, context_stack *cs, object *o) {
         //abort();
         vm_error_impl(cs, interns("SIG-ERROR"));
     }
-    if(otype(fargs) != O_CONS && fargs != obj_nil()) {
+    if(otype(fargs) != O_CONS && fargs != obj_nil) {
         printf("Expected args as list, but got: ");
         print_object(fargs);
         printf("\n");
@@ -497,14 +497,14 @@ static void vm_fn(compiled_chunk *cc, context_stack *cs, object *o) {
     bs_push(cc, lookup_fn(cs, interns("COMPILE-FN")));
     bs_call(cc, 2);
     bs_pop_context(cc);
-    bs_push(cc, obj_nil());
+    bs_push(cc, obj_nil);
 }
 
 static void vm_lambda(compiled_chunk *cc, context_stack *cs, object *o) {
     (void)cc;
     object *fargs = ocar(cs, ocdr(cs, o));
     object *body = ocdr(cs, ocdr(cs, o));
-    if(otype(fargs) != O_CONS && fargs != obj_nil()) {
+    if(otype(fargs) != O_CONS && fargs != obj_nil) {
         printf("Expected args as list, but got: ");
         print_object(fargs);
         printf("\n");
@@ -518,14 +518,14 @@ static void vm_lambda(compiled_chunk *cc, context_stack *cs, object *o) {
     bs_push(cc, lookup_fn(cs, interns("COMPILE-LAMBDA")));
     bs_call(cc, 2);
     bs_pop_context(cc);
-    //bs_push(cc, obj_nil());
+    //bs_push(cc, obj_nil);
 }
 
 static void vm_funcall(compiled_chunk *cc, context_stack *cs, object *o) {
     (void)cc;
     object *fun = ocar(cs, ocdr(cs, o));
     object *args = ocdr(cs, ocdr(cs, o));
-//    if(otype(fargs) != O_CONS && fargs != obj_nil()) {
+//    if(otype(fargs) != O_CONS && fargs != obj_nil) {
 //        printf("Expected args as list, but got: ");
 //        print_object(fargs);
 //        printf("\n");
@@ -536,7 +536,7 @@ static void vm_funcall(compiled_chunk *cc, context_stack *cs, object *o) {
     
     long num_args = 0;
     object *curr;
-    for(curr = args; curr != obj_nil(); curr = ocdr(cs, curr)) {
+    for(curr = args; curr != obj_nil; curr = ocdr(cs, curr)) {
         num_args++;
         compile_bytecode(cc, cs, ocar(cs, curr));
     }
@@ -551,7 +551,7 @@ static void vm_funcall(compiled_chunk *cc, context_stack *cs, object *o) {
 //    bs_push(cc, lookup_fn(cs, interns("COMPILE-LAMBDA")));
 //    bs_call(cc, 2);
 //    bs_pop_context(cc);
-    //bs_push(cc, obj_nil());
+    //bs_push(cc, obj_nil);
 }
 
 void vm_if(compiled_chunk *cc, context_stack *cs, object *o) {
@@ -591,7 +591,7 @@ void vm_defmacro(compiled_chunk *cc, context_stack *cs, object *o) {
         //abort();
         vm_error_impl(cs, interns("SIG-ERROR"));
     }
-    if(otype(fargs) != O_CONS && fargs != obj_nil()) {
+    if(otype(fargs) != O_CONS && fargs != obj_nil) {
         printf("Expected args as list, but got: ");
         print_object(fargs);
         printf("\n");
@@ -606,7 +606,7 @@ void vm_defmacro(compiled_chunk *cc, context_stack *cs, object *o) {
     bs_push(cc, lookup_fn(cs, interns("COMPILE-MACRO")));
     bs_call(cc, 2);
     bs_pop_context(cc);
-    bs_push(cc, obj_nil());
+    bs_push(cc, obj_nil);
 }
 
 int vm_backtick(compiled_chunk *cc, context_stack *cs, object *o) {
@@ -621,8 +621,8 @@ int vm_backtick(compiled_chunk *cc, context_stack *cs, object *o) {
             return 1;
         }
         else {
-            bs_push(cc, obj_nil());
-            for(object *each = o; each != obj_nil(); each = ocdr(cs, each)) {
+            bs_push(cc, obj_nil);
+            for(object *each = o; each != obj_nil; each = ocdr(cs, each)) {
                 int should_splice = vm_backtick(cc, cs, ocar(cs, each));
                 (void)should_splice;
                 if(should_splice) {
@@ -701,7 +701,7 @@ void vm_tagbody(compiled_chunk *cc, context_stack *cs, object *o) {
     bs_push_context(cc);
     bs_save_stackoff(cc);
     size_t stackoff = cc->stacklevel;
-    for(object *next = ocdr(cs, o); next != obj_nil(); next = ocdr(cs, next)) {
+    for(object *next = ocdr(cs, o); next != obj_nil; next = ocdr(cs, next)) {
         if(!first_time) {
             // Pop the previous result. It will be unused. (only the last form is "returned.")
             bs_pop(cc);
@@ -710,7 +710,7 @@ void vm_tagbody(compiled_chunk *cc, context_stack *cs, object *o) {
         object *current = ocar(cs, next);
         if(otype(current) == O_SYM) {
             bs_label(cc, strdup(string_ptr(oval_symbol(cs, current))));
-            bs_push(cc, obj_nil());
+            bs_push(cc, obj_nil);
             //stackoff = cc->stackoff;
         }
         else {
@@ -719,13 +719,13 @@ void vm_tagbody(compiled_chunk *cc, context_stack *cs, object *o) {
         }
     }
     bs_restore_stackoff(cc);
-    bs_push(cc, obj_nil());
+    bs_push(cc, obj_nil);
     bs_pop_context(cc);
 }
 
 void vm_go(compiled_chunk *cc, context_stack *cs, object *o) {
     object *label = ocar(cs, ocdr(cs, o));
-//    bs_push(cc, obj_nil());
+//    bs_push(cc, obj_nil);
 //    bs_restore_stackoff(cc);
     bs_go(cc, strdup(string_ptr(oval_symbol(cs, label))));
 
@@ -736,7 +736,7 @@ void vm_set(compiled_chunk *cc, context_stack *cs, object *o) {
     object *val = ocar(cs, ocdr(cs, ocdr(cs, o)));
     compile_bytecode(cc, cs, val);
     bs_set(cc, cs, var);
-    bs_push(cc, obj_nil());
+    bs_push(cc, obj_nil);
 }
 
 static void compile_cons(compiled_chunk *cc, context_stack *cs, object *o) {
@@ -787,7 +787,7 @@ static void compile_cons(compiled_chunk *cc, context_stack *cs, object *o) {
     else if(func == interns("+")) {
         long num_args = 0;
         object *curr;
-        for(curr = ocdr(cs, o); curr != obj_nil(); curr = ocdr(cs, curr)) {
+        for(curr = ocdr(cs, o); curr != obj_nil; curr = ocdr(cs, curr)) {
             num_args++;
             compile_bytecode(cc, cs, ocar(cs, curr));
         }
@@ -797,7 +797,7 @@ static void compile_cons(compiled_chunk *cc, context_stack *cs, object *o) {
     else if(func == interns("-")) {
         long num_args = 0;
         object *curr;
-        for(curr = ocdr(cs, o); curr != obj_nil(); curr = ocdr(cs, curr)) {
+        for(curr = ocdr(cs, o); curr != obj_nil; curr = ocdr(cs, curr)) {
             num_args++;
             compile_bytecode(cc, cs, ocar(cs, curr));
         }
@@ -807,7 +807,7 @@ static void compile_cons(compiled_chunk *cc, context_stack *cs, object *o) {
     else if(func == interns("*")) {
         long num_args = 0;
         object *curr;
-        for(curr = ocdr(cs, o); curr != obj_nil(); curr = ocdr(cs, curr)) {
+        for(curr = ocdr(cs, o); curr != obj_nil; curr = ocdr(cs, curr)) {
             num_args++;
             compile_bytecode(cc, cs, ocar(cs, curr));
         }
@@ -817,7 +817,7 @@ static void compile_cons(compiled_chunk *cc, context_stack *cs, object *o) {
     else if(func == interns("/")) {
         long num_args = 0;
         object *curr;
-        for(curr = ocdr(cs, o); curr != obj_nil(); curr = ocdr(cs, curr)) {
+        for(curr = ocdr(cs, o); curr != obj_nil; curr = ocdr(cs, curr)) {
             num_args++;
             compile_bytecode(cc, cs, ocar(cs, curr));
         }
@@ -827,7 +827,7 @@ static void compile_cons(compiled_chunk *cc, context_stack *cs, object *o) {
     else if(func == interns("=")) {
         long num_args = 0;
         object *curr;
-        for(curr = ocdr(cs, o); curr != obj_nil(); curr = ocdr(cs, curr)) {
+        for(curr = ocdr(cs, o); curr != obj_nil; curr = ocdr(cs, curr)) {
             num_args++;
             compile_bytecode(cc, cs, ocar(cs, curr));
         }
@@ -847,7 +847,7 @@ static void compile_cons(compiled_chunk *cc, context_stack *cs, object *o) {
 
             long num_args = 0;
             object *curr;
-            for(curr = ocdr(cs, o); curr != obj_nil(); curr = ocdr(cs, curr)) {
+            for(curr = ocdr(cs, o); curr != obj_nil; curr = ocdr(cs, curr)) {
                 num_args++;
                 compile_bytecode(cc, cs, ocar(cs, curr));
             }
@@ -870,7 +870,7 @@ static void compile_cons(compiled_chunk *cc, context_stack *cs, object *o) {
                 vm_error_impl(cs, interns("SIG-ERROR"));
             }
             else if(fn_cc->flags & CC_FLAG_HAS_REST) {
-                bs_push(cc, obj_nil());
+                bs_push(cc, obj_nil);
             }
 
             bs_push(cc, fn);
@@ -878,7 +878,7 @@ static void compile_cons(compiled_chunk *cc, context_stack *cs, object *o) {
         }
         else {
             int num_args = 0;
-            for(object *curr = ocdr(cs, o); curr != obj_nil(); curr = ocdr(cs, curr)) {
+            for(object *curr = ocdr(cs, o); curr != obj_nil; curr = ocdr(cs, curr)) {
                 num_args++;
                 compile_bytecode(cc, cs, ocar(cs, curr));
             }

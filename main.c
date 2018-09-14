@@ -14,6 +14,9 @@ extern size_t s_off;
 
 int main(void) {
 
+    obj_nil = interns("NIL");
+    obj_t = interns("T");
+    
     context_stack *cs = context_stack_init();
     gc_init();
     vm_init(cs);
@@ -29,7 +32,7 @@ int main(void) {
         else {
             compiled_chunk *bootstrap = bootstrapper(cs, f);
             while(!feof(f)) {
-                jmp_buf *jmper = vm_push_trap(cs, obj_nil());
+                jmp_buf *jmper = vm_push_trap(cs, obj_nil);
                 int ret = setjmp(*jmper);
                 if(ret) {
                     if(feof(f)) {
@@ -58,7 +61,7 @@ int main(void) {
     compiled_chunk *cc = repl(cs);
     while(1) {
         //printf("\n\n");
-        jmp_buf *jmper = vm_push_trap(cs, obj_nil());
+        jmp_buf *jmper = vm_push_trap(cs, obj_nil);
         int ret = setjmp(*jmper);
         //printf("RET IS: %d\n", ret);
         if(ret) {

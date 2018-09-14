@@ -73,7 +73,7 @@ object *parse_list(context_stack *cs, parser *p) {
         //printf("[parser.c][parse_list] Found end of list.\n");
         tok_match(cs, p, RPAREN);
         //return NULL;
-        return obj_nil();
+        return obj_nil;
         break;
     default:
         //printf("[parser.c][parse_list] Getting next form for CAR.\n");
@@ -134,13 +134,13 @@ object *next_form(parser *p, context_stack *cs) {
     case QUOTE:
         get_next_tok(p);
         o = next_form(p, cs);
-        o = new_object_cons(o, obj_nil());
+        o = new_object_cons(o, obj_nil);
         return new_object_cons(intern(new_string_copy("QUOTE")), o);
         break;
     case BACKTICK:
         get_next_tok(p);
         o = next_form(p, cs);
-        o = new_object_cons(o, obj_nil());
+        o = new_object_cons(o, obj_nil);
         return new_object_cons(intern(new_string_copy("BACKTICK")), o);
         break;
     case COMMA:
@@ -148,12 +148,12 @@ object *next_form(parser *p, context_stack *cs) {
         if(currtok(p)->type == AT_SYMBOL) {
             get_next_tok(p);
             o = next_form(p, cs);
-            o = new_object_cons(o, obj_nil());
+            o = new_object_cons(o, obj_nil);
             return new_object_cons(intern(new_string_copy("COMMA_AT")), o);
         }
         else {
             o = next_form(p, cs);
-            o = new_object_cons(o, obj_nil());
+            o = new_object_cons(o, obj_nil);
             return new_object_cons(intern(new_string_copy("COMMA")), o);
         }
         break;
