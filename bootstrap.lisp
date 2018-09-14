@@ -52,6 +52,25 @@
        nil
        t))
 
+(defmacro collecting (collector &rest body)
+  `(let ((,collector (cons nil nil)))
+     ,@body
+     (car ,collector)))
+
+(fn collect (collector x)
+    (let ((ret (car collector))
+          (rettrack (cdr collector)))
+      (if ret
+          (progn
+            (setcdr rettrack (cons x nil))
+            (set rettrack (cdr rettrack)))
+          (progn
+            (set ret (cons x nil))
+            (set rettrack ret)))
+      (setcar collector ret)
+      (setcdr collector rettrack)
+      collector))
+
 (fn do-lets (steps bindings)
   (if steps
       (let ((currbind (car steps)))
@@ -78,87 +97,19 @@
           (if (not ,(car end-form)) (go ,loop-body)))
        ,(car (cdr end-form)))))
 
-(defmacro for (init cond step &rest body)
-  (let ((conditional (gensym))
-        (loop-body (gensym)))
-    `(let (,init)
-       (tagbody
-          (go ,conditional)
-          ,loop-body
-          ,@body
-          ,step
-          ,conditional
-          (if ,cond
-              (go ,loop-body))))))
-
-(defmacro mapcar (lpair &rest body)
-  (let ((var (car lpair))
-        (list (gensym))
-        (ret (gensym))
-        (rettrack (gensym))
-        (next (gensym)))
-    `(let ((,list ,(car (cdr lpair)))
-           (,ret nil)
-           (,rettrack nil))
-       (for (,var (car ,list)) ,var (progn
-                                      (set ,list (cdr ,list))
-                                      (set ,var (car ,list)))
-            (let ((,next
-                   (progn
-                     ,@body)))
-              (if ,ret
-                  (progn
-                    (setcdr ,rettrack (cons ,next nil))
-                    (set ,rettrack (cdr ,rettrack)))
-                  (progn
-                    (set ,ret (cons ,next nil))
-                    (set ,rettrack ,ret)))))
-       ,ret)))
-
 (fn load-file (fname)
-    (let ((f (open fname)))
+    (let ((file (open fname)))
       (catch ('end-of-file e)
-        (do ((form (eval (read f)) (eval (read f))))
+        (do ((form (eval (read file)) (eval (read file))))
             (nil :done))
-        (close f))))
+        (close file))))
 
-(fn read-file (fname)
-    (let ((f (open fname)))
-      (catch ('end-of-file e)
-        (do ((form (read f) (read f)))
-            ((progn
-               (print form)
-               (print "\n")
-               nil)
-             :done))
-        (close f))))
-
-(fn read-file-by-char (fname)
-    (let ((f (open fname))
-          (chrs nil)
-          (chtrack nil))
-      (catch ('end-of-file e)
-        (do ((c (read-char f) (read-char f)))
-            ((progn
-               (if chrs
-                   (progn
-                     (setcdr chtrack (cons c nil))
-                     (set chtrack (cdr chtrack)))
-                   (progn
-                     (set chrs (cons c nil))
-                     (set chtrack chrs)))
-               nil)
-             :done))
-        (progn
-          (close f)
-          chrs))))
-
-(fn slurp (fname)
-    (let ((f (open fname))
-          (str ""))
-      (catch ('end-of-file e)
-        (for (c (read-char f)) t (set c (read-char f))
-             (str-append str c))
-        (progn
-          (close f)
-          str))))
+(print "compiling loops.lisp")
+(load-file "loops.lisp")
+(print "compiling functions.lisp")
+(load-file "function.lisp")
+(print "compiling io.lisp")
+(load-file "io.lisp")
+(print "compiling strings.lisp")
+(load-file "strings.lisp")
+(print "done.")

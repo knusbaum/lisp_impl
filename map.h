@@ -31,4 +31,6 @@ void destroy_map_iterator(map_iterator *mi);
 
 map_t *map_reverse(map_t *m);
 
+void map_dump(map_t *m, void (*kprint)(void *k), void (*vprint)(void *v));
+
 #endif

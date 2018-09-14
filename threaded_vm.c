@@ -175,9 +175,11 @@ static inline void __push(object *o) {
         stack_size *= 2;
         stack = realloc(stack, stack_size * sizeof (object *));
     }
-    //printf("Pushing: ");
-    //print_object(o);
-    //printf("\n");
+    if(o == NULL) {
+        printf("Pushing: ");
+        print_object(o);
+        printf("\n");
+    }
     stack[s_off++] = o;
     //dump_stack();
 }
@@ -356,6 +358,10 @@ void vm_cdr(context_stack *cs, long variance) {
         vm_error_impl(cs, interns("SIG-ERROR"));
     }
     object *list = __pop();
+    if(list == NULL) {
+        printf("NULL OBJECT ON STACK!\n");
+        abort();
+    }
     __push(ocdr(cs, list));
 }
 
@@ -590,9 +596,10 @@ void vm_macroexpand_rec(context_stack *cs, long rec) {
                 }
             }
 
+//            push_context(cs);
             compiled_chunk *func_cc = oval_fn_compiled(cs, func);
             run_vm(cs, func_cc);
-
+//            free_context(pop_context(cs));
 
             object *exp = pop();
             for(int i = 0; i < num_args; i++) {
@@ -657,7 +664,6 @@ void vm_error(context_stack *cs, long variance) {
     vm_error_impl(cs, sym);
 }
 void vm_error_impl(context_stack *cs, object *sym) {
-
     for(ssize_t i = trap_stack_off - 1; i >= 0; i--) {
 //        printf("Checking trap_stack[%lu].\n", i);
 //        printf("sym: ");
@@ -814,7 +820,7 @@ void vm_bind(context_stack *cs, long variance) {
         //abort();
         vm_error_impl(cs, interns("SIG-ERROR"));
     }
-
+    
     object *value = pop();
     object *name = pop();
     bind_var(cs, name, value);
@@ -827,6 +833,10 @@ void vm_eval(context_stack *cs, long variance) {
         //abort();
         vm_error_impl(cs, interns("SIG-ERROR"));
     }
+    //object *oo = __top();
+    //printf("Evaling: ");
+    //print_object(oo);
+    //printf("\n");
     push(lookup_fn(cs, interns("MACROEXPAND")));
     call(cs, 1);
 
@@ -842,9 +852,9 @@ void vm_eval(context_stack *cs, long variance) {
     }
 
     object *o = __pop();
-//    printf("Macroexpanded: ");
-//    print_object(o);
-//    printf("\n");
+    //printf("Macroexpanded: ");
+    //print_object(o);
+    //printf("\n");
     compile_form(cc, cs, o);
     run_vm(cs, cc);
     free_compiled_chunk(cc);
@@ -1060,7 +1070,7 @@ go_if_not_nil_optim:
     //printf("(not jumping)\n");
     NEXTI;
 push_from_stack:
-    //printf("%ld@%p PUSH_FROM_STACK (%ld)\n", bs - cc->bs, cc, s_off - 1 - bs->offset);
+    //printf("%ld@%p PUSH_FROM_STACK (%ld)(s_off: %ld)\n", bs - cc->bs, cc, s_off - 1 - bs->offset, s_off);
     //dump_stack();
     __push(stack[s_off - 1 - bs->offset]);
     NEXTI;

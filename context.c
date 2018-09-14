@@ -27,8 +27,13 @@ context_stack *context_stack_init() {
     return cs;
 }
 
+//void kprint_object(void *o) {
+//    print_object(o);
+//}
+
 object *lookup_var_off(context_stack *cs, object *sym, size_t off) {
     object *o = map_get(cs->cstack[off]->vars, sym);
+    //map_dump(cs->cstack[off]->vars, kprint_object, kprint_object);
     if(!o && off > 0) {
         return lookup_var_off(cs, sym, off - 1);
     }
@@ -36,7 +41,13 @@ object *lookup_var_off(context_stack *cs, object *sym, size_t off) {
 }
 
 object *lookup_var(context_stack *cs, object *sym) {
-    return lookup_var_off(cs, sym, cs->cstackoff);
+//    printf("Looking up: ");
+//    print_object(sym);
+    object *o = lookup_var_off(cs, sym, cs->cstackoff);
+//    printf(" Found: ");
+//    print_object(o);
+//    printf("\n");
+    return o;
 }
 
 object *bind_var(context_stack *cs, object *sym, object *var) {
@@ -244,4 +255,21 @@ map_t *context_vars(context *c) {
 
 map_t *context_funcs(context *c) {
     return c->funcs;
+}
+
+void mprint_object(void *o) {
+    print_object(o);
+}
+
+void dump_context_vars(context_stack *cs) {
+    for(ssize_t off = cs->cstackoff; off >= 0; off--) {
+        printf("Dumping var bindings @ %p\n", cs->cstack[off]->vars);
+        map_dump(cs->cstack[off]->vars, mprint_object, mprint_object);
+    }
+//   
+//    object *o = map_get(cs->cstack[off]->vars, sym);
+//    if(!o && off > 0) {
+//        return lookup_var_off(cs, sym, off - 1);
+//    }
+//    return o;
 }

@@ -49,4 +49,6 @@ void destroy_context_fn_iterator(context_fn_iterator *cfi);
 map_t *context_vars(context *c);
 map_t *context_funcs(context *c);
 
+void dump_context_vars(context_stack *cs);
+
 #endif

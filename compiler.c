@@ -203,8 +203,9 @@ void bs_resolve(compiled_chunk *cc, context_stack *cs, object *sym) {
         vm_error_impl(cs, interns("SIG-ERROR"));
     }
     if(otype(var_stacklevel) == O_STACKOFFSET) {
-
-        //printf("Resolving to: %ld, %ld from top of stack (%ld): (%p)\n", oval_stackoffset(cs, var_stacklevel), cc->stacklevel - oval_stackoffset(cs, var_stacklevel), cc->stacklevel, var_stacklevel);
+        //printf("BS_RESOLVE: ");
+        //print_object(sym);
+        //printf(" Resolving to: %ld, %ld from top of stack (%ld): (%p)\n", oval_stackoffset(cs, var_stacklevel), cc->stacklevel - oval_stackoffset(cs, var_stacklevel), cc->stacklevel, var_stacklevel);
         bs_push_from_stack(cc, cc->stacklevel - oval_stackoffset(cs, var_stacklevel));
     }
     else if(map_get(special_syms, sym) != NULL) {
@@ -605,6 +606,7 @@ void vm_defmacro(compiled_chunk *cc, context_stack *cs, object *o) {
     bs_push(cc, lookup_fn(cs, interns("COMPILE-MACRO")));
     bs_call(cc, 2);
     bs_pop_context(cc);
+    bs_push(cc, obj_nil());
 }
 
 int vm_backtick(compiled_chunk *cc, context_stack *cs, object *o) {
@@ -853,6 +855,7 @@ static void compile_cons(compiled_chunk *cc, context_stack *cs, object *o) {
             if(num_args > fn_cc->variance) {
                 if(fn_cc->flags & CC_FLAG_HAS_REST) {
                     bs_push(cc, lookup_fn(cs, interns("LIST")));
+                    printf("Call list %ld\n", num_args - fn_cc->variance);
                     bs_call(cc, num_args - fn_cc->variance);
                 }
                 else {
@@ -860,6 +863,14 @@ static void compile_cons(compiled_chunk *cc, context_stack *cs, object *o) {
                     //abort();
                     vm_error_impl(cs, interns("SIG-ERROR"));
                 }
+            }
+            else if(num_args < fn_cc->variance) {
+                printf("Expected at least %ld arguments, but got %ld.\n", fn_cc->variance, num_args);
+                //abort();
+                vm_error_impl(cs, interns("SIG-ERROR"));
+            }
+            else if(fn_cc->flags & CC_FLAG_HAS_REST) {
+                bs_push(cc, obj_nil());
             }
 
             bs_push(cc, fn);

@@ -48,6 +48,9 @@ int main(void) {
         }
     }
 
+    printf("Loaded bootstrap.lisp. Dumping context stack var bindings:\n");
+    dump_context_vars(cs);
+    
     pthread_t gc_thread;
     pthread_create(&gc_thread, NULL, run_gc_loop, cs);
 

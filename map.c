@@ -143,3 +143,16 @@ map_t *map_reverse(map_t *m) {
 
     return revmap;
 }
+
+void map_dump(map_t *m, void (*kprint)(void *k), void (*vprint)(void *v)) {
+    for(size_t i = 0; i < m->count; i++) {
+//        if(m->equal(m->keys[i], key)) {
+//            return m->vals[i];
+//        }
+        printf("Key: ");
+        kprint(m->keys[i]);
+        printf("Value: ");
+        vprint(m->vals[i]);
+        printf("\n");
+    }
+}

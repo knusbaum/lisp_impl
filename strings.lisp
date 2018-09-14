@@ -21,13 +21,6 @@
                                    (set elem (car lst)))
            (str-append str elem))
       str))
-;      
-;      (do ((lst-rest lst (cdr lst-rest))
-;           (elem (car lst-rest) (car lst-rest)))
-;          ((progn
-;             (print elem)
-;             (str-append str elem)
-;             (eq elem nil))
-;           str))))
-;#1  0x0000000000404352 in new_string_copy (c=0x0) at lstring.c:26
 
+(defmacro foo (bar)
+  bar)
