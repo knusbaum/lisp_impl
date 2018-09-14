@@ -49,3 +49,10 @@
              (let ((,next-val (progn
                             ,@body)))
                (collect ,collector ,next-val)))))))
+
+(fn fmapcar (lst fn)
+  (collecting collector
+    (for (x (car lst)) x (progn
+                           (set lst (cdr lst))
+                           (set x (car lst)))
+         (collect collector (funcall fn x)))))

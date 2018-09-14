@@ -132,7 +132,7 @@ object *new_object_cons(object *car, object *cdr) {
 object *long_cache[O_NUM_CACHE_SIZE];
 
 object *new_object_long(long l) {
-    if(l < O_NUM_CACHE_SIZE && long_cache[l])
+    if(l > 0 && l < O_NUM_CACHE_SIZE && long_cache[l])
         return long_cache[l];
     object *ob = malloc(sizeof (object));
     ob->gcflag = GC_FLAG_BLACK;
@@ -140,7 +140,7 @@ object *new_object_long(long l) {
     ob->type = O_NUM;
     ob->num = l;
     ob->name = NULL;
-    if(l < O_NUM_CACHE_SIZE)
+    if(l > 0 && l < O_NUM_CACHE_SIZE)
         long_cache[l] = ob;
     return ob;
 }
@@ -436,6 +436,7 @@ char name_to_char(const char *s) {
 
 static void sprint_cons(string *s, cons *c);
 static void sprint_object(string *s, object *o);
+static void sprint_string(string *s, object *o);
 
 static void sprint_cdr(string *s, object *o) {
     char *name;
@@ -447,8 +448,8 @@ static void sprint_cdr(string *s, object *o) {
         string_appends(s, output);
         break;
     case O_STR:
-        sprintf(output, " . \"%s\"", string_ptr(o->str));
-        string_appends(s, output);
+        string_appends(s, " . ");
+        sprint_string(s, o);
         break;
     case O_NUM:
         sprintf(output, " . %ld", o->num);
@@ -501,6 +502,22 @@ static void sprint_cdr(string *s, object *o) {
     }
 }
 
+static void sprint_string(string *s, object *o) {
+    string_appends(s, "\"");
+    const char *str = string_ptr(o->str);
+    for(size_t i = 0; i < strlen(str); i++) {
+        switch (str[i]) {
+            case '"':
+                string_appends(s, "\\\"");
+                break;
+        default:
+            string_append(s, str[i]);
+            break;
+        }
+    }
+    string_appends(s, "\"");
+}
+
 static void sprint_cons(string *s, cons *c) {
     object *o = car(c);
     if(o) {
@@ -513,16 +530,13 @@ static void sprint_cons(string *s, cons *c) {
 }
 
 static void sprint_list(string *s, cons *c) {
-    //printf("(");
     string_appends(s, "(");
     sprint_cons(s, c);
     string_appends(s, ")");
-    //printf(")");
 }
 
 static void sprint_object(string *s, object *o) {
     if(!o) {
-        //printf("[[NULL]]");
         string_appends(s, "[[NULL]]");
         return;
     }
@@ -531,14 +545,10 @@ static void sprint_object(string *s, object *o) {
     switch(otype(o)) {
     case O_KEYWORD:
     case O_SYM:
-        //printf("%s", string_ptr(o->str));
         string_concat(s, o->str);
         break;
     case O_STR:
-        //printf("\"%s\"", string_ptr(o->str));
-        string_appends(s, "\"");
-        string_concat(s, o->str);
-        string_appends(s, "\"");
+        sprint_string(s, o);
         break;
     case O_NUM:
         sprintf(output, "%ld", o->num);

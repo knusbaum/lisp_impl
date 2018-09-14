@@ -96,7 +96,11 @@ static void append_escaped(string *s, int c) {
     case 't':
         string_append(s, '\t');
         break;
+    case '"':
+        string_append(s, '"');
+        break;
     default:
+        string_append(s, '?');
         break;
     }
 }

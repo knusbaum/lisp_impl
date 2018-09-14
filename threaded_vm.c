@@ -112,6 +112,7 @@ void vm_str_setnth(context_stack *cs, long variance);
 void vm_str_append(context_stack *cs, long variance);
 void vm_str_copy(context_stack *cs, long variance);
 void vm_bind(context_stack *cs, long variance);
+void vm_function(context_stack *cs, long variance);
 
 parser *stdin_parser;
 
@@ -160,6 +161,7 @@ void vm_init(context_stack *cs) {
     bind_native_fn(cs, interns("STR-APPEND"), vm_str_append);
     bind_native_fn(cs, interns("STR-COPY"), vm_str_copy);
     bind_native_fn(cs, interns("BIND"), vm_bind);
+    bind_native_fn(cs, interns("FUNCTION"), vm_function);
 
     addrs = get_vm_addrs();
     special_syms = map_create(sym_equal);
@@ -834,6 +836,20 @@ void vm_bind(context_stack *cs, long variance) {
     object *name = pop();
     bind_var(cs, name, value);
     __push(value);
+}
+
+void vm_function(context_stack *cs, long variance) {
+    if(variance != 1) {
+        printf("Expected exactly 1 argument, but got %ld.\n", variance);
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
+    }
+
+    object *fname = pop();
+    object *fn = lookup_fn(cs, fname);
+    if(!(fn && (otype(fn) == O_FN_NATIVE || otype(fn) == O_FN_COMPILED)))
+        fn = obj_nil;
+    __push(fn);
 }
 
 void vm_eval(context_stack *cs, long variance) {
