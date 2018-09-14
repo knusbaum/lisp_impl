@@ -72,6 +72,12 @@ void object_set_name(object *o, char *name) {
     o->name = name;
 }
 
+object *make_error_pair(char *symname, string *errorstring) {
+    object *sym = interns(symname);
+    object *errstr = new_object(O_STR, errorstring);
+    return new_object_cons(sym, errstr);
+}
+
 char *object_get_name(object *o) {
     return o->name;
 }
@@ -428,126 +434,171 @@ char name_to_char(const char *s) {
     return 0;
 }
 
-static void print_cons(cons *c);
+static void sprint_cons(string *s, cons *c);
+static void sprint_object(string *s, object *o);
 
-static void print_cdr(object *o) {
+static void sprint_cdr(string *s, object *o) {
     char *name;
+    char output[512];
     switch(otype(o)) {
     case O_KEYWORD:
     case O_SYM:
-        printf(" . %s", string_ptr(o->str));
+        sprintf(output, " . %s", string_ptr(o->str));
+        string_appends(s, output);
         break;
     case O_STR:
-        printf(" . \"%s\"", string_ptr(o->str));
+        sprintf(output, " . \"%s\"", string_ptr(o->str));
+        string_appends(s, output);
         break;
     case O_NUM:
-        printf(" . %ld", o->num);
+        sprintf(output, " . %ld", o->num);
+        string_appends(s, output);
         break;
     case O_CONS:
-        printf(" ");
-        print_cons(o->c);
+        sprintf(output, " ");
+        string_appends(s, output);
+        sprint_cons(s, o->c);
         break;
     case O_FN_NATIVE:
-        printf(" . #<NATIVE FUNCTION (%s)>", o->name);
+        sprintf(output, " . #<NATIVE FUNCTION (%s)>", o->name);
+        string_appends(s, output);
         break;
     case O_FN:
-        printf(" . #<FUNCTION @ %p>", o);
+        sprintf(output, " . #<FUNCTION @ %p>", o);
+        string_appends(s, output);
         break;
     case O_MACRO:
-        printf(" . #<MACRO @ %p>", o);
+        sprintf(output, " . #<MACRO @ %p>", o);
+        string_appends(s, output);
         break;
     case O_FN_COMPILED:
-        printf(" . #<COMPILED FUNCTION @ %p>", o);
+        sprintf(output, " . #<COMPILED FUNCTION @ %p>", o);
+        string_appends(s, output);
         break;
     case O_MACRO_COMPILED:
-        printf(" . #<COMPILED MACRO @ %p>", o);
+        sprintf(output, " . #<COMPILED MACRO @ %p>", o);
+        string_appends(s, output);
         break;
     case O_STACKOFFSET:
-        printf(" . #<STACK_OFFSET: %ld>", o->num);
+        sprintf(output, " . #<STACK_OFFSET: %ld>", o->num);
+        string_appends(s, output);
         break;
     case O_FSTREAM:
-        printf(" . #<FILE STREAM>");
+        sprintf(output, " . #<FILE STREAM>");
+        string_appends(s, output);
         break;
     case O_CHAR:
         name = char_to_name(o->character);
         if(name) {
-            printf(" . #\\%s", name);
+            sprintf(output, " . #\\%s", name);
+            string_appends(s, output);
         }
         else {
-            printf(" . #\\%c", o->character);
+            sprintf(output, " . #\\%c", o->character);
+            string_appends(s, output);
         }
         break;
     }
 }
 
-static void print_cons(cons *c) {
+static void sprint_cons(string *s, cons *c) {
     object *o = car(c);
     if(o) {
-        print_object(o);
+        sprint_object(s, o);
         o = cdr(c);
         if(o != obj_nil()) {
-            print_cdr(o);
+            sprint_cdr(s, o);
         }
     }
 }
 
-static void print_list(cons *c) {
-    printf("(");
-    print_cons(c);
-    printf(")");
+static void sprint_list(string *s, cons *c) {
+    //printf("(");
+    string_appends(s, "(");
+    sprint_cons(s, c);
+    string_appends(s, ")");
+    //printf(")");
 }
 
-void print_object(object *o) {
+static void sprint_object(string *s, object *o) {
     if(!o) {
-        printf("[[NULL]]");
+        //printf("[[NULL]]");
+        string_appends(s, "[[NULL]]");
         return;
     }
     char *name;
+    char output[512];
     switch(otype(o)) {
     case O_KEYWORD:
     case O_SYM:
-        printf("%s", string_ptr(o->str));
+        //printf("%s", string_ptr(o->str));
+        string_concat(s, o->str);
         break;
     case O_STR:
-        printf("\"%s\"", string_ptr(o->str));
+        //printf("\"%s\"", string_ptr(o->str));
+        string_appends(s, "\"");
+        string_concat(s, o->str);
+        string_appends(s, "\"");
         break;
     case O_NUM:
-        printf("%ld", o->num);
+        sprintf(output, "%ld", o->num);
+        string_appends(s, output);
         break;
     case O_CONS:
-        print_list(o->c);
+        sprint_list(s, o->c);
         break;
     case O_FN_NATIVE:
-        printf("#<NATIVE FUNCTION %s>", o->name);
+        sprintf(output, "#<NATIVE FUNCTION %s>", o->name);
+        string_appends(s, output);
         break;
     case O_FN:
-        printf("#<FUNCTION @ %p>", o);
+        sprintf(output, "#<FUNCTION @ %p>", o);
+        string_appends(s, output);
         break;
     case O_MACRO:
-        printf("#<MACRO @ %p>", o);
+        sprintf(output, "#<MACRO @ %p>", o);
+        string_appends(s, output);
         break;
     case O_FN_COMPILED:
-        printf("#<COMPILED FUNCTION @ %p>", o);
+        sprintf(output, "#<COMPILED FUNCTION @ %p>", o);
+        string_appends(s, output);
         break;
     case O_MACRO_COMPILED:
-        printf("#<COMPILED MACRO @ %p>", o);
+        sprintf(output, "#<COMPILED MACRO @ %p>", o);
+        string_appends(s, output);
         break;
     case O_STACKOFFSET:
-        printf("#<STACK_OFFSET: %ld>", o->num);
+        sprintf(output, "#<STACK_OFFSET: %ld>", o->num);
+        string_appends(s, output);
         break;
     case O_FSTREAM:
-        printf("#<FILE STREAM>");
+        sprintf(output, "#<FILE STREAM>");
+        string_appends(s, output);
         break;
     case O_CHAR:
         name = char_to_name(o->character);
         if(name) {
-            printf("#\\%s", name);
+            sprintf(output, "#\\%s", name);
+            string_appends(s, output);
         }
         else {
-            printf("#\\%c", o->character);
+            sprintf(output, "#\\%c", o->character);
+            string_appends(s, output);
         }
         break;
     }
+}
+
+void print_object(object *o) {
+    string *s = object_str(o);
+    printf("%s", string_ptr(s));
+    string_free(s);
+}
+
+string *object_str(object *o) {
+    string *s = new_string();
+    sprint_object(s, o);
+    return s;
 }
 
 /** Stream Operations **/

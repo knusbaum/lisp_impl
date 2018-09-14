@@ -34,6 +34,8 @@ enum obj_type {
 
 void object_set_name(object *o, char *name);
 
+object *make_error_pair(char *symname, string *errorstring);
+
 /** Object Operations **/
 object *new_object(enum obj_type t, void *o);
 object *new_object_cons(object *car, object *cdr);
@@ -67,6 +69,7 @@ object *ocdr(context_stack *cs, object *o);
 object *osetcar(context_stack *cs, object *o, object *car);
 object *osetcdr(context_stack *cs, object *o, object *cdr);
 void print_object(object *o);
+string *object_str(object *o);
 
 /** Stream Operations **/
 object *new_object_fstream(context_stack *cs, string *fname, char *mode);

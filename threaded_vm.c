@@ -663,7 +663,16 @@ void vm_error(context_stack *cs, long variance) {
     object *sym = pop();
     vm_error_impl(cs, sym);
 }
-void vm_error_impl(context_stack *cs, object *sym) {
+void vm_error_impl(context_stack *cs, object *o) {
+    object *sym;
+    if(otype(o) == O_CONS) {
+        sym = ocar(cs, o);
+        print_object(ocar(cs, ocdr(cs, o)));
+    }
+    else {
+        sym = o;
+    }
+
     for(ssize_t i = trap_stack_off - 1; i >= 0; i--) {
 //        printf("Checking trap_stack[%lu].\n", i);
 //        printf("sym: ");
@@ -688,7 +697,7 @@ void vm_error_impl(context_stack *cs, object *sym) {
             pop_context_to_level(cs, trap_stack[i].context_off);
             trap_stack_off = trap_stack[i].trap_stack_off;
             s_off = trap_stack[i].s_off;
-            push(sym);
+            push(o);
             //printf("Afterward: \n");
             //dump_stack();
             longjmp(trap_stack[i].buff, 3);

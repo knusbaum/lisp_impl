@@ -1,4 +1,4 @@
-CFLAGS=-ggdb -O0 -Wall -Wextra -Werror
+CFLAGS=-ggdb -O2 -Wall -Wextra -Werror
 EXECUTABLE=lisp
 LDFLAGS=-lpthread
 

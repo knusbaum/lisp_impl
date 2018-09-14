@@ -196,9 +196,9 @@ void bs_push_from_stack(compiled_chunk *cc, size_t offset) {
 void bs_resolve(compiled_chunk *cc, context_stack *cs, object *sym) {
     object *var_stacklevel = lookup_var(cs, sym);
     if(!var_stacklevel) {
-        //printf("Cannot resolve sym: ");
-        //print_object(sym);
-        //printf("\n");
+        printf("Cannot resolve sym: ");
+        print_object(sym);
+        printf("\n");
         //abort();
         vm_error_impl(cs, interns("SIG-ERROR"));
     }

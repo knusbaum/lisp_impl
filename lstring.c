@@ -52,6 +52,14 @@ void string_append(string *s, char c) {
     s->s[s->len] = 0;
 }
 
+void string_appends(string *s, const char *c) {
+    while(*c) string_append(s, *c++);
+}
+
+void string_concat(string *s, string *s2) {
+    string_appends(s, string_ptr(s2));
+}
+
 void string_set(string *s, size_t elem, char c) {
     if(elem >= string_len(s)) {
         printf("string set out of bounds.");
