@@ -106,6 +106,7 @@ void vm_error(context_stack *cs, long variance);
 void vm_open(context_stack *cs, long variance);
 void vm_close(context_stack *cs, long variance);
 void vm_read_char(context_stack *cs, long variance);
+void vm_write_char(context_stack *cs, long variance);
 void vm_str_nth(context_stack *cs, long variance);
 void vm_str_len(context_stack *cs, long variance);
 void vm_str_setnth(context_stack *cs, long variance);
@@ -155,6 +156,7 @@ void vm_init(context_stack *cs) {
     bind_native_fn(cs, interns("OPEN"), vm_open);
     bind_native_fn(cs, interns("CLOSE"), vm_close);
     bind_native_fn(cs, interns("READ-CHAR"), vm_read_char);
+    bind_native_fn(cs, interns("WRITE-CHAR"), vm_write_char);
     bind_native_fn(cs, interns("STR-NTH"), vm_str_nth);
     bind_native_fn(cs, interns("STR-LEN"), vm_str_len);
     bind_native_fn(cs, interns("STR-SETNTH"), vm_str_setnth);
@@ -330,14 +332,30 @@ void vm_splice(context_stack *cs, long variance) {
     object *to_splice = __pop();
     object *target = __pop();
     if(target == obj_nil) {
-        __push(to_splice);
+        object *head = new_object_cons(ocar(cs, to_splice), obj_nil);
+        target = head;
+        to_splice = ocdr(cs, to_splice);
+        while(to_splice != obj_nil) {
+            object *next = new_object_cons(ocar(cs, to_splice), obj_nil);
+            osetcdr(cs, target, next);
+            target = next;
+            to_splice = ocdr(cs, to_splice);
+        }
+        //__push(to_splice);
+        __push(head);
         return;
     }
     object *curr = target;
     while(ocdr(cs, curr) != obj_nil) {
         curr=ocdr(cs, curr);
     }
-    osetcdr(cs, curr, to_splice);
+    while(to_splice != obj_nil) {
+        object *next = new_object_cons(ocar(cs, to_splice), obj_nil);
+        osetcdr(cs, curr, next);
+        curr = next;
+        to_splice = ocdr(cs, to_splice);
+    }
+    //osetcdr(cs, curr, to_splice);
     __push(target);
 }
 
@@ -750,6 +768,22 @@ void vm_read_char(context_stack *cs, long variance) {
         vm_error_impl(cs, interns("END-OF-FILE"));
     }
     __push(new_object_char(c));
+}
+
+void vm_write_char(context_stack *cs, long variance) {
+    if(variance != 1) {
+        printf("Expected exactly 1 argument, but got %ld.\n", variance);
+        //abort();
+        vm_error_impl(cs, interns("SIG-ERROR"));
+    }
+    object *c = pop();
+    object *of = pop();
+    FILE *f = fstream_file(cs, of);
+    int r = fputc(oval_char(cs, c), f);
+    if(r == EOF) {
+        vm_error_impl(cs, interns("END-OF-FILE"));
+    }
+    __push(new_object_char(r));
 }
 
 void vm_str_nth(context_stack *cs, long variance) {

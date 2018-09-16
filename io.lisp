@@ -1,13 +1,20 @@
-(fn read-file (fname)
-    (let ((f (open fname)))
-      (catch ('end-of-file e)
-        (do ((form (read f) (read f)))
-            ((progn
-               (print form)
-               (print "\n")
-               nil)
-             :done))
-        (close f))))
+(defmacro unwind-protect (body &rest handler)
+  (let ((ret (gensym))
+        (e (gensym)))
+    `(catch (nil e)
+       (let ((,ret ,body))
+         ,@handler
+         ,ret)
+       (progn
+         ,@handler
+         (error e)))))
+
+(defmacro with-open-file (fpair &rest body)
+  `(let ((,(car fpair) (open ,(car (cdr fpair)))))
+     (unwind-protect
+          (progn
+            ,@body)
+       (close ,(car fpair)))))
 
 ;(fn read-file-by-char (fname)
 ;    (let ((f (open fname))
@@ -31,14 +38,24 @@
 
 ;; New read-file-by-char with collector
 (fn read-file-by-char (fname)
-  (let ((f (open fname)))
-    (collecting collector
-      (catch ('end-of-file e)
+  (collecting collector
+    (catch ('end-of-file e)
+      (with-open-file (f fname)
         (do ((c (read-char f) (read-char f)))
             ((progn (collect collector c)
                     nil)
              :done))
         (close f)))))
+
+;;(fn read-file-by-char (fname)
+;;  (let ((f (open fname)))
+;;    (collecting collector
+;;      (catch ('end-of-file e)
+;;        (do ((c (read-char f) (read-char f)))
+;;            ((progn (collect collector c)
+;;                    nil)
+;;             :done))
+;;        (close f)))))
 
 (fn slurp (fname)
     (let ((f (open fname))
