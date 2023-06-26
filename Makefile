@@ -16,7 +16,7 @@ OBJECTS=main.o \
 all: lisp
 
 lisp: $(OBJECTS)
-	$(CC) $(CFLAGS) $(LDFLAGS) $(OBJECTS) -o $(EXECUTABLE)
+	$(CC) $(CFLAGS) $(OBJECTS) $(LDFLAGS) -o $(EXECUTABLE)
 
 clean:
 	-@rm -Rf *~ *.o
