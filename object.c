@@ -7,6 +7,9 @@
 #include "gc.h"
 #include "threaded_vm.h"
 
+object *obj_nil;
+object *obj_t;
+
 typedef struct cons cons;
 struct cons {
     object *car;
